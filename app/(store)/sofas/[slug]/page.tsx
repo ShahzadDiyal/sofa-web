@@ -22,7 +22,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title: `${title} | Sofora`, description, url, type: "website" },
+    openGraph: {
+      title: `${title} | Sofora`,
+      description,
+      url,
+      type: "website",
+      ...(product.imageUrl ? { images: [{ url: product.imageUrl, alt: product.name }] } : {}),
+    },
   };
 }
 

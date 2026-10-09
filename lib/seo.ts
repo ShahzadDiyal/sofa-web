@@ -122,6 +122,7 @@ export function productJsonLd(product: Product, categoryName?: string) {
     category: categoryName,
     url,
     brand: { "@type": "Brand", name: SITE_NAME },
+    ...(product.imageUrl ? { image: [product.imageUrl] } : {}),
     ...(product.rating
       ? {
           aggregateRating: {

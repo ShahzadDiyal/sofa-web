@@ -61,15 +61,25 @@ export default function ProductClient({
         {/* Gallery */}
         <div className="flex-1 basis-[520px] min-w-0 flex flex-col gap-4">
           <div className="rounded-[28px] overflow-hidden">
-            <SofaIllustration
-              type={product.type}
-              fabric={fab.hex}
-              bg={thumbs[thumb]}
-              accent={fab.acc}
-              title={`${product.name} in ${fab.name}`}
-              className="w-full aspect-[1/1.08]"
-            />
+            {product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.imageUrl}
+                alt={`${product.name} in ${fab.name}`}
+                className="w-full aspect-[1/1.08] object-cover"
+              />
+            ) : (
+              <SofaIllustration
+                type={product.type}
+                fabric={fab.hex}
+                bg={thumbs[thumb]}
+                accent={fab.acc}
+                title={`${product.name} in ${fab.name}`}
+                className="w-full aspect-[1/1.08]"
+              />
+            )}
           </div>
+          {!product.imageUrl && (
           <div className="grid grid-cols-4 gap-3">
             {thumbs.map((bg, i) => (
               <button
@@ -87,6 +97,7 @@ export default function ProductClient({
               Fabric close-up
             </div>
           </div>
+          )}
         </div>
 
         {/* Buy box */}
