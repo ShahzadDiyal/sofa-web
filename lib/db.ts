@@ -86,6 +86,11 @@ async function loadLocal(): Promise<LocalStore> {
   return readLocalFile();
 }
 
+/** Raw local store — used by the one-time Firestore migration. */
+export async function getLocalStore(): Promise<LocalStore> {
+  return readLocalFile();
+}
+
 const db = () => adminDb();
 
 /* ---------- helpers ---------- */
