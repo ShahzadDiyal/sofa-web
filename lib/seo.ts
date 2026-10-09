@@ -4,7 +4,7 @@
    description of the business, and an llms.txt — all provided here. */
 
 import type { Metadata } from "next";
-import type { Faq, Product, SiteSettings } from "./types";
+import type { Faq, Post, Product, SiteSettings } from "./types";
 
 export const SITE_NAME = "Sofora";
 export const SITE_TAGLINE = "Sofas worth coming home to.";
@@ -23,10 +23,19 @@ export function gbp(amount: number): string {
   return `£${amount.toLocaleString("en-GB")}`;
 }
 
+/** Default social share image (1200×630), used unless a page supplies its own. */
+export const defaultOgImage = {
+  url: "/opengraph-image",
+  width: 1200,
+  height: 630,
+  alt: "Sofora — designer sofas, pay on delivery",
+};
+
 /* ---------- base metadata ---------- */
 
 export function baseMetadata(): Metadata {
   const url = siteUrl();
+  const ogImage = defaultOgImage;
   return {
     metadataBase: new URL(url),
     title: { default: `${SITE_NAME} — ${SITE_TAGLINE}`, template: `%s | ${SITE_NAME}` },
@@ -51,11 +60,13 @@ export function baseMetadata(): Metadata {
       description: SITE_DESCRIPTION,
       url,
       locale: "en_GB",
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title: `${SITE_NAME} — ${SITE_TAGLINE}`,
       description: SITE_DESCRIPTION,
+      images: [ogImage.url],
     },
     alternates: { canonical: url },
   };
@@ -122,7 +133,7 @@ export function productJsonLd(product: Product, categoryName?: string) {
     category: categoryName,
     url,
     brand: { "@type": "Brand", name: SITE_NAME },
-    ...(product.imageUrl ? { image: [product.imageUrl] } : {}),
+    image: product.imageUrl ? [product.imageUrl] : [absoluteUrl("/opengraph-image")],
     ...(product.rating
       ? {
           aggregateRating: {
@@ -189,6 +200,40 @@ export function itemListJsonLd(products: Product[], listName: string, listUrl: s
       position: i + 1,
       url: absoluteUrl(`/sofas/${p.slug}`),
       name: p.name,
+    })),
+  };
+}
+
+/** BlogPosting structured data for an article page. */
+export function blogPostJsonLd(post: Post) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.metaDescription || post.excerpt,
+    datePublished: post.publishedAt,
+    dateModified: post.updatedAt,
+    author: { "@type": "Person", name: post.authorName || "Sofora Team" },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      logo: { "@type": "ImageObject", url: absoluteUrl("/icon.svg") },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": absoluteUrl(`/blog/${post.slug}`) },
+    timeRequired: `PT${post.readingMinutes}M`,
+  };
+}
+
+/** FAQPage for an article's optional faqJson block. */
+export function postFaqJsonLd(post: Post) {
+  if (!post.faqJson?.length) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: post.faqJson.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
     })),
   };
 }

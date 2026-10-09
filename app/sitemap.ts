@@ -1,25 +1,31 @@
 import type { MetadataRoute } from "next";
-import { listCategories, listProducts } from "@/lib/db";
+import { listCategories, listPosts, listProducts } from "@/lib/db";
 import { siteUrl } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
-  const [products, categories] = await Promise.all([listProducts(), listCategories()]);
+  const [products, categories, posts] = await Promise.all([
+    listProducts(),
+    listCategories(),
+    listPosts(true),
+  ]);
 
   const staticPages = [
     "",
     "/sofas",
-    "/checkout",
+    "/blog",
     "/wishlist",
     "/delivery",
     "/returns",
     "/contact",
     "/privacy",
+    "/terms",
+    "/cookies",
   ].map((p) => ({
     url: `${base}${p || "/"}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
-    priority: p === "" ? 1 : 0.8,
+    priority: p === "" ? 1 : p === "/blog" ? 0.9 : 0.8,
   }));
 
   const productUrls = products.map((p) => ({
@@ -36,5 +42,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...categoryUrls, ...productUrls];
+  const postUrls = posts.map((p) => ({
+    url: `${base}/blog/${p.slug}`,
+    lastModified: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
+
+  return [...staticPages, ...categoryUrls, ...productUrls, ...postUrls];
 }

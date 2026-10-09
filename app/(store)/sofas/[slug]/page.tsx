@@ -10,24 +10,48 @@ export async function generateStaticParams() {
   return products.map((p) => ({ slug: p.slug }));
 }
 
+/** Keep the product name so that "{Name} | Sofora" stays within 60 chars. */
+function shortName(name: string): string {
+  const max = 60 - " | Sofora".length;
+  return name.length > max ? `${name.slice(0, max - 1).trimEnd()}…` : name;
+}
+
+/** Trim copy to 150–160 chars on a word boundary. */
+function trimDescription(text: string, max = 160): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  const atWord = cut.lastIndexOf(" ");
+  return `${(atWord > 120 ? cut.slice(0, atWord) : cut).trimEnd()}…`;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const products = await listProducts();
   const product = products.find((p) => p.slug === slug);
   if (!product) return { title: "Sofa not found" };
-  const title = `${product.name} — ${product.sub}`;
-  const description = `${product.description.slice(0, 150)}… Pay nothing online — pay the driver on delivery across the UK.`;
+  const name = shortName(product.name);
+  const title = `${name} | Sofora`;
+  const description = trimDescription(
+    `${product.name} — ${product.sub}. Pay nothing online: we confirm by phone, deliver with a two-person team, and you pay the driver on delivery across the UK.`
+  );
   const url = absoluteUrl(`/sofas/${product.slug}`);
   return {
-    title,
+    title: name,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} | Sofora`,
+      title,
       description,
       url,
       type: "website",
-      ...(product.imageUrl ? { images: [{ url: product.imageUrl, alt: product.name }] } : {}),
+      images: [{ url: product.imageUrl ?? absoluteUrl("/opengraph-image"), alt: product.name }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [product.imageUrl ?? absoluteUrl("/opengraph-image")],
     },
   };
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getSettings, listCategories, listFaqs, listProducts, listReviews } from "@/lib/db";
 import { seedSteps, seedWhy } from "@/lib/seed";
-import { absoluteUrl, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
+import { absoluteUrl, defaultOgImage, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
 import { FaqAccordion, JsonLd, ProductCard } from "@/components/storefront";
 import { IconArrowRight, IconCash, IconPhone, IconShield, IconTruck } from "@/components/Icons";
@@ -18,6 +18,11 @@ export const metadata: Metadata = {
       "Handcrafted sofas delivered across the UK. Nothing to pay online — pay on delivery.",
     url: absoluteUrl("/"),
     type: "website",
+    images: [defaultOgImage],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [defaultOgImage.url],
   },
 };
 

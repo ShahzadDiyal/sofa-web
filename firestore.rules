@@ -20,6 +20,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /posts/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /settings/site {
       allow read: if true;
       allow write: if false;

@@ -266,8 +266,9 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                 <input type="checkbox" checked={form.agree} onChange={(e) => set("agree", e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#1F3A32]" />
                 <span>
                   I&apos;ll be home for delivery, and I agree to the{" "}
-                  <Link href="/terms" className="underline">terms</Link> and{" "}
-                  <Link href="/delivery" className="underline">delivery policy</Link>.
+                  <Link href="/terms" className="underline">terms</Link>,{" "}
+                  <Link href="/delivery" className="underline">delivery policy</Link> and{" "}
+                  <Link href="/privacy" className="underline">privacy policy</Link>.
                 </span>
               </label>
               {error && (

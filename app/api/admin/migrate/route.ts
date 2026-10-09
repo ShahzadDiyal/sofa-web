@@ -21,6 +21,7 @@ export async function GET() {
     ["categories", "categories"],
     ["faqs", "faqs"],
     ["reviews", "reviews"],
+    ["posts", "posts"],
     ["orders", "orders"],
   ] as const) {
     const snap = await f.collection(col).limit(1).get();
@@ -36,6 +37,7 @@ export async function GET() {
       categories: local.categories.length,
       faqs: local.faqs.length,
       reviews: local.reviews.length,
+      posts: local.posts.length,
       orders: local.orders.length,
     },
   });
@@ -77,6 +79,7 @@ export async function POST() {
   await migrateCollection("categories", local.categories);
   await migrateCollection("faqs", local.faqs);
   await migrateCollection("reviews", local.reviews);
+  await migrateCollection("posts", local.posts);
   await migrateCollection("orders", local.orders);
 
   const batch = f.batch();

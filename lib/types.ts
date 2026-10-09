@@ -102,8 +102,25 @@ export interface Review {
   order: number;
 }
 
-export interface SiteSettings {
-  announcementBar: string[];
+export interface Post {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string; // 150-160 chars, used for cards + meta description fallback
+  content: string; // HTML string, sanitized on render
+  coverColor?: string | null; // hex for the branded card/hero gradient, e.g. "#EFE8DC"
+  tags: string[];
+  status: "published" | "draft";
+  metaTitle?: string;
+  metaDescription?: string;
+  publishedAt: string; // ISO
+  updatedAt: string; // ISO
+  readingMinutes: number;
+  authorName: string; // default "Sofora Team"
+  faqJson?: { q: string; a: string }[]; // optional FAQ schema for the article
+}
+
+export interface SiteSettings {  announcementBar: string[];
   freeDeliveryThreshold: number;
   acceptedPayments: ("cash" | "card" | "bank_transfer")[];
   deliveryTimeText: string;

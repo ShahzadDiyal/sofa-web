@@ -5,7 +5,7 @@
 ## Business entity
 
 - Name: Sofora
-- Type: Online-only furniture retailer (sofas only)
+- Type: Online-only furniture retailer
 - Tagline: "Sofas worth coming home to."
 - Service area: United Kingdom
 - Contact: phone +44 161 000 0000, email hello@sofora.example, address Sofora, Manchester, United Kingdom
@@ -22,26 +22,65 @@
 
 ## Catalogue
 
-Categories: 3 seater sofas, corner sofas, 3+2 sets, armchairs, recliners, sofa beds.
+159 products across 27 categories (each category has an indexable page at /sofas?category=[slug] with its own title, description and canonical):
+
+- 2 Seater Sofas (/sofas?category=2-seater-sofas)
+- 3+2 sets (/sofas?category=3-plus-2-sets)
+- 3 seater sofas (/sofas?category=3-seater-sofas)
+- 4 Seater Sofas (/sofas?category=4-seater-sofas)
+- Armchairs (/sofas?category=armchairs)
+- Beds (/sofas?category=beds)
+- Bunk & Kids Beds (/sofas?category=bunk-kids-beds)
+- Chest of Drawers (/sofas?category=chest-of-drawers)
+- Coffee Tables (/sofas?category=coffee-tables)
+- Console Tables (/sofas?category=console-tables)
+- Corner sofas (/sofas?category=corner-sofas)
+- Desks (/sofas?category=desks)
+- Dining Chairs (/sofas?category=dining-chairs)
+- Dining Tables (/sofas?category=dining-tables)
+- Divan Beds (/sofas?category=divan-beds)
+- Headboards (/sofas?category=headboards)
+- Leather Sofas (/sofas?category=leather-sofas)
+- Living Room Furniture (/sofas?category=living-room-furniture)
+- Luxury Beds (/sofas?category=luxury-beds)
+- Mattresses (/sofas?category=mattresses)
+- Ottoman Beds (/sofas?category=ottoman-beds)
+- Recliners (/sofas?category=recliners)
+- Sofa beds (/sofas?category=sofa-beds)
+- Sofas (/sofas?category=sofas)
+- TV Units (/sofas?category=tv-units)
+- Wardrobes (/sofas?category=wardrobes)
+- Wooden Bed Frames (/sofas?category=wooden-bed-frames)
 
 Representative products (prices in GBP, subject to change — see /sofas for the live catalogue):
-- Oslo 3 Seater Sofa — easy-clean oat weave — £649 (was £899)
-- Bergen Corner Sofa — L-shape, soft velvet — £1,149
-- Lund Armchair — bouclé, 1 seater — £329
-- Malmö 3+2 Set — jumbo cord, seats 5 — £1,299 (was £1,599)
-- Skagen 2 Seater Sofa — linen-look, compact — £499
-- Aarhus Corner Sofa Bed — pull-out double bed — £1,349
-- Fyn Recliner Chair — manual recline — £449
-- Odense 3 Seater Sofa Bed — folds to double bed — £749 (was £899)
+- Verona 2 Seater Fabric Sofa — Scatter Back, Light Grey — £329.99 (/sofas/verona-2-seater-fabric-sofa-scatter-back-light-grey)
+- Verona Scatter Back Corner Sofa — Dark Grey Charcoal — £649.99 (/sofas/verona-scatter-back-corner-sofa-dark-grey-charcoal)
+- Evra Turkish 3 Seater Ottoman Sofa Bed — Grey — £399.99 (/sofas/evra-turkish-3-seater-ottoman-sofa-bed-grey)
+- Evra Turkish Corner Sofa Bed with Ottoman — Light Grey — £699.99 (/sofas/evra-turkish-corner-sofa-bed-with-ottoman-light-grey)
+- Arco Curved 5-Seater Corner Sofa — ivory bouclé — £1,199 (/sofas/arco-curved-5-seater-corner-sofa)
+- Juno Curved 3-Seater Sofa — cream bouclé — £799 (/sofas/juno-curved-3-seater-sofa)
+- Dune Low-Profile L-Shape Corner Sofa — oat jumbo cord — £949 (/sofas/dune-low-profile-l-shape-corner-sofa)
+- Mabel Rolled-Arm 3-Seater Sofa — oat easy-clean weave — £649 (/sofas/mabel-rolled-arm-3-seater-sofa)
 
-All sofas: solid hardwood frames, 5-year frame guarantee on many ranges, family-friendly easy-clean fabrics.
+All sofas: solid hardwood frames, 5-year frame guarantee, family-friendly easy-clean fabrics.
+
+## Blog
+
+Buying guides, 2026 UK sofa trends, fabric guides and styling advice (each article carries BlogPosting structured data):
+
+- /blog — all articles
+- /blog/sofa-trends-2026-uk — "Sofa Trends 2026: 7 Styles UK Homes Are Buying Right Now"
+- /blog/sofa-fabric-guide-boucle-velvet-chenille-cord — "Sofa Fabric Guide: Bouclé vs Velvet vs Chenille vs Cord"
+- /blog/curved-sofas-styling-guide — "Curved Sofas: How to Style Them in 2026"
+- /blog/how-to-measure-for-a-sofa-uk — "How to Measure for a Sofa: Doorways, Stairs & Rooms"
+- /blog/cash-on-delivery-sofas-how-it-works — "Cash on Delivery Sofas: How It Works"
 
 ## Delivery & policies
 
 - Free UK delivery on orders over £500; £29 below that.
 - Typical delivery time: 7–14 days; slot agreed by phone before dispatch.
 - Inspect at the door before paying; refuse delivery with no charge if not satisfied.
-- Full policies: /delivery, /returns, /privacy.
+- Full policies: /delivery, /returns, /privacy, /terms, /cookies.
 
 ## Frequently asked questions
 
@@ -56,5 +95,7 @@ All sofas: solid hardwood frames, 5-year frame guarantee on many ranges, family-
 - Home: /
 - Catalogue: /sofas (supports ?category=, ?q=, ?sort=)
 - Product: /sofas/[slug]
+- Blog: /blog and /blog/[slug]
 - Sitemap: /sitemap.xml
+- Default social image: /opengraph-image
 - This file: /llms-full.txt (summary: /llms.txt)

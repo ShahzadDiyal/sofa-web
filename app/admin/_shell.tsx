@@ -3,10 +3,12 @@
 /* Admin shell: forest sidebar (desktop) / top bar with horizontal nav (mobile). */
 
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   IconArrowRight,
+  IconArticle,
   IconDashboard,
   IconPackage,
   IconPhone,
@@ -23,6 +25,7 @@ const NAV = [
   { href: "/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
   { href: "/admin/products", label: "Sofas", Icon: IconSofa },
   { href: "/admin/categories", label: "Categories", Icon: IconTag },
+  { href: "/admin/posts", label: "Blog", Icon: IconArticle },
   { href: "/admin/customers", label: "Customers", Icon: IconPhone },
   { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
   { href: "/admin/settings", label: "Settings", Icon: IconSettings },
@@ -75,13 +78,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-[250px] bg-forest text-cream flex-col gap-7 px-4 py-6 z-40">
         <Link href="/admin" className="flex items-center gap-2.5 px-1.5">
-          <span className="w-9 h-9 rounded-full bg-cream grid place-items-center text-forest">
-            <IconSofa size={20} />
-          </span>
-          <span>
-            <span className="block font-serif text-[22px] leading-none">Sofora</span>
-            <span className="block text-[12px] text-[#C9D6CC] mt-1">Admin</span>
-          </span>
+          <Logo variant="light" markSize={36} textSize={22} />
+          <span className="text-[12px] text-[#C9D6CC]">Admin</span>
         </Link>
         <nav className="flex flex-col gap-1" aria-label="Admin">
           {nav}
@@ -100,10 +98,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       {/* Mobile top bar */}
       <div className="lg:hidden sticky top-0 z-40 bg-forest text-cream">
         <div className="flex items-center gap-2.5 px-4 py-3">
-          <span className="w-9 h-9 rounded-full bg-cream grid place-items-center text-forest">
-            <IconSofa size={20} />
-          </span>
-          <span className="font-serif text-[20px]">Sofora</span>
+          <Logo variant="light" markSize={34} textSize={20} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
           <Link href="/" className="ml-auto text-[13px] underline text-[#C9D6CC]">
             View store

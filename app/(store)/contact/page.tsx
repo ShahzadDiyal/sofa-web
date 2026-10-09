@@ -5,7 +5,7 @@ import { IconMail, IconPhone, IconPin } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: "Contact us",
-  description: "Get in touch with Sofora — phone, email, or WhatsApp. We confirm every order by phone before dispatch.",
+  description: "Contact Sofora — WhatsApp, phone or email. We confirm every order by phone before dispatch, then deliver anywhere in the UK with a two-person team.",
   alternates: { canonical: absoluteUrl("/contact") },
 };
 

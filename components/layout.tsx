@@ -14,6 +14,7 @@ import {
   IconX,
 } from "./Icons";
 import SofaIllustration from "./SofaIllustration";
+import Logo from "./Logo";
 
 const SALE_LINK = { label: "Sale", href: "/sofas?sale=1" };
 
@@ -155,10 +156,7 @@ export function Header() {
           <IconMenu />
         </button>
         <Link href="/" className="flex items-center gap-2.5" aria-label="Sofora home">
-          <span className="w-[38px] h-[38px] rounded-full bg-forest grid place-items-center text-cream">
-            <IconSofa size={20} />
-          </span>
-          <span className="font-serif text-[27px] tracking-tight">Sofora</span>
+          <Logo />
         </Link>
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
@@ -318,7 +316,7 @@ export function Header() {
           <div className="absolute inset-0 bg-ink/40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-cream p-6 flex flex-col gap-2 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <span className="font-serif text-2xl">Sofora</span>
+              <Logo textSize={24} markSize={34} />
               <button
                 className="w-11 h-11 grid place-items-center rounded-full hover:bg-sand"
                 aria-label="Close menu"
@@ -389,6 +387,9 @@ export function Header() {
             <Link href="/wishlist" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
               Wishlist
             </Link>
+            <Link href="/blog" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
+              Blog
+            </Link>
             <p className="mt-6 text-sm text-muted">Nothing to pay online — pay on delivery.</p>
           </div>
         </div>
@@ -408,7 +409,7 @@ export function Footer({
     <footer className="bg-forest text-mint">
       <div className="mx-auto max-w-7xl px-6 pt-16 pb-10 flex flex-wrap gap-10">
         <div className="flex-[2_1_280px] flex flex-col gap-3.5">
-          <span className="font-serif text-3xl text-cream">Sofora</span>
+          <Logo variant="light" textSize={30} markSize={40} />
           <p className="leading-relaxed max-w-[36ch] text-[15px]">
             Sofas only. Delivered across the UK, paid for on arrival.
           </p>
@@ -427,6 +428,7 @@ export function Footer({
           <Link href="/#how" className="hover:opacity-70">How COD works</Link>
           <Link href="/delivery" className="hover:opacity-70">Delivery policy</Link>
           <Link href="/returns" className="hover:opacity-70">Returns</Link>
+          <Link href="/blog" className="hover:opacity-70">Blog</Link>
           <Link href="/contact" className="hover:opacity-70">Contact</Link>
         </nav>
         <div className="flex-1 min-w-[200px] flex flex-col gap-2.5 text-[15px]">
@@ -441,6 +443,7 @@ export function Footer({
           <span>© 2026 Sofora. All rights reserved.</span>
           <span className="flex gap-5">
             <Link href="/privacy" className="hover:opacity-70">Privacy</Link>
+            <Link href="/cookies" className="hover:opacity-70">Cookies</Link>
             <Link href="/terms" className="hover:opacity-70">Terms</Link>
           </span>
         </div>

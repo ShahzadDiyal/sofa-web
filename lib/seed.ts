@@ -1,7 +1,7 @@
 /* Seed content transcribed from the design mockup.
    Everything here is editable from the admin panel once wired. */
 
-import type { Category, Faq, Product, Review, SiteSettings } from "./types";
+import type { Category, Faq, Post, Product, Review, SiteSettings } from "./types";
 
 const now = "2026-10-09T10:00:00.000Z";
 
@@ -308,4 +308,25 @@ export const seedWhy = [
   { t: "Pay only when you're happy", d: "See the fabric, test the seat and check the finish at your door. Then pay the driver." },
   { t: "Built to last", d: "Solid frames and a 5-year guarantee on many ranges, with easy-clean fabrics for family life." },
   { t: "Delivered to your room", d: "Free UK delivery with a two-person team. We'll call first to agree your slot." },
+];
+
+export const seedPosts: Post[] = [
+  {
+    id: "post-welcome",
+    slug: "welcome-to-the-sofora-journal",
+    title: "Welcome to the Sofora Journal",
+    excerpt:
+      "Buying guides, fabric explainers and living-room ideas from the Sofora team — written to help you choose a sofa you'll love for years.",
+    content: `<p>This is the Sofora Journal's first draft. Publish buying guides, fabric comparisons and styling ideas here — each article supports FAQ structured data, reading-time estimates and tag filtering out of the box.</p><h2>How to use this post</h2><p>Edit it from <strong>Admin → Blog</strong>, switch the status to <strong>Published</strong>, and it will appear on the public blog page with full SEO metadata.</p>`,
+    coverColor: "#EFE8DC",
+    tags: ["Guides"],
+    status: "draft",
+    metaTitle: "Welcome to the Sofora Journal | Sofora",
+    metaDescription:
+      "The Sofora Journal: sofa buying guides, fabric explainers and living-room ideas for UK homes.",
+    publishedAt: "2026-10-09T10:00:00.000Z",
+    updatedAt: "2026-10-09T10:00:00.000Z",
+    readingMinutes: 1,
+    authorName: "Sofora Team",
+  },
 ];

@@ -7,8 +7,8 @@ Sofora is a UK sofa retailer selling exclusively online. The entire business mod
 ## Key facts
 
 - Business: Sofora — online-only sofa store serving the United Kingdom.
-- Products: 3 seater sofas, corner sofas, 3+2 sets, armchairs, recliners, sofa beds. Solid hardwood frames; 5-year frame guarantee on many ranges; easy-clean family fabrics (weave, velvet, bouclé, jumbo cord).
-- Pricing: GBP. Example range: armchairs from £329, 3 seater sofas from £499, corner sofas from £1,149.
+- Products: 159 products across 27 categories — corner sofas, 3 seater, 2 seater and 4 seater sofas, 3+2 sets, armchairs, recliners, sofa beds, leather sofas, plus beds, tables, wardrobes and storage. Solid hardwood frames; 5-year frame guarantee; easy-clean family fabrics (weave, velvet, bouclé, jumbo cord).
+- Pricing: GBP. Example range: armchairs from £199.99, 3 seater sofas from £315, corner sofas from £299.
 - Delivery: free UK delivery on orders over £500 (otherwise £29); two-person delivery to room of choice; delivery slot agreed by phone before dispatch; typical lead time 7–14 days.
 - Payment: nothing is paid online. Payment is collected on delivery by the driver: cash, card machine, or bank transfer.
 - Returns/refusal: inspect at the door before paying; refuse delivery with no charge if not satisfied.
@@ -17,16 +17,21 @@ Sofora is a UK sofa retailer selling exclusively online. The entire business mod
 
 - Home: /
 - All sofas (filterable by style, with search and sort): /sofas
-- Product pages: /sofas/[slug] (e.g. /sofas/oslo-3-seater-sofa)
+- Category views: /sofas?category=[slug] (each category page is indexable with its own title, description and canonical)
+- Product pages: /sofas/[slug]
+- Blog (sofa buying guides, trends, fabric guides): /blog
 - Checkout (details only, no payment): /checkout
 - Wishlist: /wishlist
 - Delivery policy: /delivery
 - Returns: /returns
 - Contact: /contact
 - Privacy: /privacy
+- Terms & conditions: /terms
+- Cookie policy: /cookies
 
 ## Data for AI consumers
 
-- Structured data: Organization/FurnitureStore, WebSite with SearchAction, Product with Offer (GBP, InStock), BreadcrumbList, FAQPage, HowTo (pay-on-delivery steps), and ItemList on collection pages.
+- Structured data: Organization/FurnitureStore, WebSite with SearchAction, Product with Offer (GBP, InStock, always with an image), BreadcrumbList, FAQPage, HowTo (pay-on-delivery steps), BlogPosting, and ItemList on collection pages.
+- Default social share image: /opengraph-image (1200×630)
 - Full catalogue and policies: /llms-full.txt
 - Machine-readable sitemap: /sitemap.xml

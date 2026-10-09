@@ -22,15 +22,6 @@ import {
 
 type Tab = "all" | "live" | "draft";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  "3-seater-sofas": "3 seater",
-  "corner-sofas": "Corner",
-  "3-plus-2-sets": "3+2 set",
-  armchairs: "Armchair",
-  recliners: "Recliner",
-  "sofa-beds": "Sofa bed",
-};
-
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -54,7 +45,11 @@ export default function ProductsPage() {
   useEffect(load, []);
 
   const catName = (slug: string) =>
-    categories.find((c) => c.slug === slug)?.name ?? CATEGORY_LABELS[slug] ?? slug;
+    categories.find((c) => c.slug === slug)?.name ??
+    slug
+      .split("-")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ");
 
   const counts = useMemo(() => {
     const list = products ?? [];

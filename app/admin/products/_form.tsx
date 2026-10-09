@@ -234,7 +234,7 @@ export default function SofaForm({ product }: { product?: Product }) {
             <CardTitle>Basics</CardTitle>
             <div>
               <label className={labelClass} htmlFor="f-name">Sofa name</label>
-              <input id="f-name" className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Oslo 3 Seater Sofa" />
+              <input id="f-name" className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Arco Curved 5-Seater Corner Sofa" />
             </div>
             <div>
               <label className={labelClass} htmlFor="f-sub">Short tagline</label>

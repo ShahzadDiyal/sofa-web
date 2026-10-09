@@ -10,6 +10,7 @@ import { adminDb } from "./firebase-admin";
 import {
   seedCategories,
   seedFaqs,
+  seedPosts,
   seedProducts,
   seedReviews,
   seedSettings,
@@ -19,6 +20,7 @@ import type {
   Faq,
   Order,
   OrderStatus,
+  Post,
   Product,
   Review,
   SiteSettings,
@@ -34,6 +36,7 @@ interface LocalStore {
   orders: Order[];
   settings: SiteSettings;
   orderSeq: number;
+  posts: Post[];
 }
 
 /* Local JSON store (dev/demo fallback when Firebase Admin is not configured). */
@@ -48,6 +51,7 @@ function freshLocal(): LocalStore {
     orders: [],
     settings: structuredClone(seedSettings),
     orderSeq: 1001,
+    posts: structuredClone(seedPosts),
   };
 }
 
@@ -438,6 +442,122 @@ export async function saveFaqs(faqs: Faq[]): Promise<Faq[]> {
   return mutateLocal((s) => {
     s.faqs = faqs;
     return faqs;
+  });
+}
+
+/* ---------- content: blog posts ---------- */
+
+export async function listPosts(publishedOnly = false): Promise<Post[]> {
+  const f = db();
+  if (f) {
+    const snap = await f.collection("posts").orderBy("publishedAt", "desc").get();
+    if (snap.empty && !publishedOnly) {
+      // first run: seed posts
+      const batch = f.batch();
+      for (const p of seedPosts) batch.set(f.collection("posts").doc(p.id), p);
+      await batch.commit();
+      return seedPosts;
+    }
+    const all = snap.docs.map((d) => d.data() as Post);
+    return publishedOnly ? all.filter((p) => p.status === "published") : all;
+  }
+  const s = await loadLocal();
+  const all = [...s.posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  return publishedOnly ? all.filter((p) => p.status === "published") : all;
+}
+
+export async function getPost(slugOrId: string): Promise<Post | null> {
+  const f = db();
+  if (f) {
+    const byId = await f.collection("posts").doc(slugOrId).get();
+    if (byId.exists) return byId.data() as Post;
+    const q = await f.collection("posts").where("slug", "==", slugOrId).limit(1).get();
+    return q.empty ? null : (q.docs[0].data() as Post);
+  }
+  const s = await loadLocal();
+  return s.posts.find((p) => p.slug === slugOrId || p.id === slugOrId) ?? null;
+}
+
+function normalizePost(input: Partial<Post> & { title: string }): Partial<Post> {
+  const tags = Array.isArray(input.tags)
+    ? input.tags
+    : typeof input.tags === "string"
+      ? (input.tags as string).split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+  const words = (input.content ?? "").replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
+  return {
+    ...input,
+    tags,
+    readingMinutes: Math.max(1, Math.round(words / 200)),
+    authorName: input.authorName?.trim() || "Sofora Team",
+    status: input.status === "draft" ? "draft" : "published",
+  };
+}
+
+export async function savePost(input: Partial<Post> & { title: string }): Promise<Post> {
+  const f = db();
+  const nowIso = new Date().toISOString();
+  if (f) {
+    const col = f.collection("posts");
+    if (input.id) {
+      const ref = col.doc(input.id);
+      const existing = (await ref.get()).data() as Post | undefined;
+      const merged: Post = {
+        ...(existing as Post),
+        ...normalizePost(input),
+        slug: input.slug || existing?.slug || slugify(input.title),
+        updatedAt: nowIso,
+      } as Post;
+      await ref.set(merged, { merge: true });
+      return merged;
+    }
+    const all = await listPosts();
+    const post: Post = {
+      id: `post-${Date.now()}`,
+      slug: uniqueSlug(slugify(input.title), new Set(all.map((p) => p.slug))),
+      excerpt: "",
+      content: "",
+      tags: [],
+      status: "draft",
+      publishedAt: nowIso,
+      updatedAt: nowIso,
+      ...normalizePost(input),
+    } as Post;
+    await col.doc(post.id).set(post);
+    return post;
+  }
+  return mutateLocal((s) => {
+    if (input.id) {
+      const i = s.posts.findIndex((p) => p.id === input.id);
+      if (i >= 0) {
+        s.posts[i] = { ...s.posts[i], ...normalizePost(input), updatedAt: nowIso } as Post;
+        return s.posts[i];
+      }
+    }
+    const post: Post = {
+      id: `post-${Date.now()}`,
+      slug: uniqueSlug(slugify(input.title), new Set(s.posts.map((p) => p.slug))),
+      excerpt: "",
+      content: "",
+      tags: [],
+      status: "draft",
+      publishedAt: nowIso,
+      updatedAt: nowIso,
+      ...normalizePost(input),
+    } as Post;
+    s.posts.push(post);
+    return post;
+  });
+}
+
+export async function deletePost(id: string): Promise<void> {
+  const f = db();
+  if (f) {
+    await f.collection("posts").doc(id).delete();
+    return;
+  }
+  await mutateLocal((s) => {
+    s.posts = s.posts.filter((p) => p.id !== id);
   });
 }
 
