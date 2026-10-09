@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Sofora brand palette (from design mockup) */
   --color-forest: #1f3a32;

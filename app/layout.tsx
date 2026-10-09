@@ -1,20 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { baseMetadata } from "@/lib/seo";
 
-const dmSans = DM_Sans({
+const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-dm-sans",
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  variable: "--font-fraunces",
+  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -32,7 +25,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-GB" className={`${dmSans.variable} ${fraunces.variable}`}>
+    <html lang="en-GB" className={poppins.variable}>
       <body>
         <StoreProvider>{children}</StoreProvider>
       </body>

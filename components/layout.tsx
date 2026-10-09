@@ -1,18 +1,131 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { IconBasket, IconHeart, IconMenu, IconSearch, IconSofa, IconX } from "./Icons";
+import type { Category } from "@/lib/types";
+import {
+  IconBasket,
+  IconChevronDown,
+  IconHeart,
+  IconMenu,
+  IconSearch,
+  IconSofa,
+  IconX,
+} from "./Icons";
+import SofaIllustration from "./SofaIllustration";
 
-const NAV = [
-  { label: "All sofas", href: "/sofas" },
-  { label: "Corner sofas", href: "/sofas?category=corner-sofas" },
-  { label: "3+2 sets", href: "/sofas?category=3-plus-2-sets" },
-  { label: "Armchairs", href: "/sofas?category=armchairs" },
-  { label: "Sofa beds", href: "/sofas?category=sofa-beds" },
-  { label: "Sale", href: "/sofas?sale=1", accent: true },
+const MENU_GROUPS: { label: string; href: string; slugs: string[] }[] = [
+  {
+    label: "Sofas",
+    href: "/sofas",
+    slugs: [
+      "sofas",
+      "3-seater-sofas",
+      "2-seater-sofas",
+      "4-seater-sofas",
+      "corner-sofas",
+      "3-plus-2-sets",
+      "armchairs",
+      "recliners",
+      "sofa-beds",
+      "leather-sofas",
+    ],
+  },
+  {
+    label: "Beds & Bedroom",
+    href: "/sofas?category=beds",
+    slugs: [
+      "beds",
+      "divan-beds",
+      "ottoman-beds",
+      "bunk-kids-beds",
+      "wooden-bed-frames",
+      "luxury-beds",
+      "headboards",
+      "mattresses",
+      "wardrobes",
+      "chest-of-drawers",
+    ],
+  },
+  {
+    label: "Tables & Storage",
+    href: "/sofas?category=coffee-tables",
+    slugs: [
+      "coffee-tables",
+      "console-tables",
+      "desks",
+      "dining-tables",
+      "dining-chairs",
+      "tv-units",
+      "living-room-furniture",
+    ],
+  },
 ];
+
+const SALE_LINK = { label: "Sale", href: "/sofas?sale=1" };
+
+function useMenuData() {
+  const [categories, setCategories] = useState<Category[] | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories ?? []))
+      .catch(() => setCategories([]));
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((d) => {
+        const m: Record<string, number> = {};
+        for (const p of d.products ?? []) m[p.category] = (m[p.category] ?? 0) + 1;
+        setCounts(m);
+      })
+      .catch(() => {});
+  }, []);
+  return { categories, counts };
+}
+
+function CategoryTile({ category, count }: { category: Category; count?: number }) {
+  return (
+    <Link
+      href={`/sofas?category=${category.slug}`}
+      className="group/tile flex flex-col gap-2"
+    >
+      <span className="rounded-[18px] overflow-hidden block bg-cream">
+        <SofaIllustration
+          type={category.type}
+          fabric={category.fabric}
+          bg={category.bg}
+          title={category.name}
+          className="w-full aspect-[4/3] group-hover/tile:scale-[1.04] transition-transform duration-300"
+        />
+      </span>
+      <span>
+        <span className="block text-[14px] font-medium leading-snug group-hover/tile:underline underline-offset-4">
+          {category.name}
+        </span>
+        {count !== undefined && (
+          <span className="block text-[12px] text-muted mt-0.5">
+            {count} {count === 1 ? "product" : "products"}
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+}
+
+function ShimmerTiles() {
+  return (
+    <div className="grid grid-cols-2 gap-4" aria-hidden>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col gap-2">
+          <div className="rounded-[18px] aspect-[4/3] skeleton" />
+          <div className="h-4 w-3/4 rounded-full skeleton" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function AnnouncementBar({ messages }: { messages: string[] }) {
   return (
@@ -31,6 +144,10 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const { categories, counts } = useMenuData();
+  const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -38,6 +155,35 @@ export function Header() {
       document.body.style.overflow = "";
     };
   }, [open ]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const showMenu = (label: string) => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpenMenu(label);
+  };
+  const scheduleHide = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpenMenu(null), 150);
+  };
+
+  const groupCats = (slugs: string[]) =>
+    slugs
+      .map((s) => categories?.find((c) => c.slug === s))
+      .filter((c): c is Category => Boolean(c));
+  const popularCats = (slugs: string[]) =>
+    groupCats(slugs)
+      .sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0))
+      .slice(0, 4);
 
   return (
     <header className="bg-cream border-b border-line sticky top-0 z-40">
@@ -57,15 +203,93 @@ export function Header() {
         </Link>
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
-          {NAV.map((n) => (
-            <Link
-              key={n.label}
-              href={n.href}
-              className={`py-2.5 hover:opacity-70 ${n.accent ? "text-terra" : ""}`}
-            >
-              {n.label}
-            </Link>
-          ))}
+          {MENU_GROUPS.map((g) => {
+            const cats = groupCats(g.slugs);
+            const popular = popularCats(g.slugs);
+            const isOpen = openMenu === g.label;
+            return (
+              <div
+                key={g.label}
+                className="relative"
+                onMouseEnter={() => showMenu(g.label)}
+                onMouseLeave={scheduleHide}
+              >
+                <Link
+                  href={g.href}
+                  className="py-2.5 hover:opacity-70 flex items-center gap-1.5"
+                  aria-haspopup="true"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenMenu(null)}
+                >
+                  {g.label}
+                  <IconChevronDown
+                    size={14}
+                    className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                  />
+                </Link>
+                {isOpen && (
+                  <div className="absolute left-0 top-full pt-2 z-50">
+                    <div className="w-[640px] bg-white rounded-[24px] border border-line shadow-[0_24px_70px_-20px_rgba(31,58,50,0.35)] p-6 grid grid-cols-[1fr_1.4fr] gap-7">
+                      <div>
+                        <p className="label-caps mb-3">Shop by category</p>
+                        {categories === null ? (
+                          <div className="flex flex-col gap-2.5" aria-hidden>
+                            {[0, 1, 2, 3, 4].map((i) => (
+                              <div key={i} className="h-5 w-4/5 rounded-full skeleton" />
+                            ))}
+                          </div>
+                        ) : (
+                          <ul className="flex flex-col">
+                            {cats.map((c) => (
+                              <li key={c.slug}>
+                                <Link
+                                  href={`/sofas?category=${c.slug}`}
+                                  onClick={() => setOpenMenu(null)}
+                                  className="flex items-center justify-between gap-3 py-2 rounded-xl px-2 -mx-2 hover:bg-cream text-[14px]"
+                                >
+                                  <span className="font-medium">{c.name}</span>
+                                  <span className="text-[12px] text-muted tabular-nums">
+                                    {counts[c.slug] ?? 0}
+                                  </span>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <Link
+                          href={g.href}
+                          onClick={() => setOpenMenu(null)}
+                          className="inline-block mt-3 text-[14px] font-semibold text-forest underline underline-offset-4"
+                        >
+                          View all {g.label.toLowerCase()}
+                        </Link>
+                      </div>
+                      <div>
+                        <p className="label-caps mb-3">Most popular</p>
+                        {categories === null ? (
+                          <ShimmerTiles />
+                        ) : (
+                          <div className="grid grid-cols-2 gap-4">
+                            {popular.map((c) => (
+                              <div key={c.slug} onClick={() => setOpenMenu(null)}>
+                                <CategoryTile category={c} count={counts[c.slug] ?? 0} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <Link
+            href={SALE_LINK.href}
+            className="py-2.5 hover:opacity-70 text-terra"
+          >
+            {SALE_LINK.label}
+          </Link>
         </nav>
 
         <div className="flex gap-1 items-center ml-auto lg:ml-0">
@@ -143,16 +367,66 @@ export function Header() {
                 <IconX />
               </button>
             </div>
-            {NAV.map((n) => (
-              <Link
-                key={n.label}
-                href={n.href}
-                onClick={() => setOpen(false)}
-                className={`py-3 text-lg font-medium border-b border-line ${n.accent ? "text-terra" : ""}`}
-              >
-                {n.label}
-              </Link>
-            ))}
+            {MENU_GROUPS.map((g) => {
+              const cats = groupCats(g.slugs);
+              const isExpanded = expanded === g.label;
+              return (
+                <div key={g.label} className="border-b border-line">
+                  <button
+                    className="w-full flex items-center justify-between py-3 text-lg font-medium"
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpanded(isExpanded ? null : g.label)}
+                  >
+                    {g.label}
+                    <IconChevronDown
+                      size={18}
+                      className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {isExpanded && (
+                    <div className="pb-3 flex flex-col gap-1">
+                      {categories === null ? (
+                        <div className="flex flex-col gap-2.5 py-1" aria-hidden>
+                          {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="h-5 w-3/4 rounded-full skeleton" />
+                          ))}
+                        </div>
+                      ) : (
+                        cats.map((c) => (
+                          <Link
+                            key={c.slug}
+                            href={`/sofas?category=${c.slug}`}
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-3 py-2 text-[16px]"
+                          >
+                            <span className="w-11 rounded-[12px] overflow-hidden flex-none bg-cream">
+                              <SofaIllustration
+                                type={c.type}
+                                fabric={c.fabric}
+                                bg={c.bg}
+                                title={c.name}
+                                className="w-full aspect-square"
+                              />
+                            </span>
+                            <span>{c.name}</span>
+                            <span className="ml-auto text-[13px] text-muted tabular-nums">
+                              {counts[c.slug] ?? 0}
+                            </span>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <Link
+              href={SALE_LINK.href}
+              onClick={() => setOpen(false)}
+              className="py-3 text-lg font-medium border-b border-line text-terra"
+            >
+              {SALE_LINK.label}
+            </Link>
             <Link href="/wishlist" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
               Wishlist
             </Link>
