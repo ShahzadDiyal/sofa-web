@@ -41,6 +41,24 @@ interface LocalStore {
 
 /* Local JSON store (dev/demo fallback when Firebase Admin is not configured). */
 let writeChain: Promise<void> = Promise.resolve();
+/* In-memory copy used when the filesystem is read-only (e.g. Vercel /var/task):
+   the app keeps serving the seeded catalog instead of throwing EROFS. */
+let memoryStore: LocalStore | null = null;
+let diskWritable: boolean | null = null;
+
+async function tryPersist(s: LocalStore): Promise<boolean> {
+  if (diskWritable === false) return false;
+  try {
+    await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
+    await atomicWrite(STORE_PATH, JSON.stringify(s, null, 2));
+    diskWritable = true;
+    return true;
+  } catch (err) {
+    diskWritable = false;
+    console.warn("[db] local store is not writable (read-only filesystem?) — using in-memory fallback.", (err as Error)?.message ?? err);
+    return false;
+  }
+}
 
 function freshLocal(): LocalStore {
   return {
@@ -56,13 +74,16 @@ function freshLocal(): LocalStore {
 }
 
 async function readLocalFile(): Promise<LocalStore> {
+  if (memoryStore) return memoryStore;
   try {
     const raw = await fs.readFile(STORE_PATH, "utf-8");
-    return JSON.parse(raw) as LocalStore;
+    memoryStore = JSON.parse(raw) as LocalStore;
+    return memoryStore;
   } catch {
     const fresh = freshLocal();
-    await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
-    await atomicWrite(STORE_PATH, JSON.stringify(fresh, null, 2));
+    memoryStore = fresh;
+    // Best-effort persist; never throws on read-only hosts.
+    await tryPersist(fresh);
     return fresh;
   }
 }
@@ -78,7 +99,9 @@ async function mutateLocal<T>(fn: (s: LocalStore) => T | Promise<T>): Promise<T>
   const run = writeChain.then(async () => {
     const s = await readLocalFile();
     const result = await fn(s);
-    await atomicWrite(STORE_PATH, JSON.stringify(s, null, 2));
+    // Best-effort persist; on read-only filesystems the mutation still
+    // applies to the in-memory store for the lifetime of the instance.
+    await tryPersist(s);
     return result;
   });
   // Keep the chain alive even if one mutation fails.
