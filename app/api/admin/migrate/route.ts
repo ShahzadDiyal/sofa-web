@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { getLocalStore } from "@/lib/db";
+import { getLocalStore, invalidateReadCache } from "@/lib/db";
 
 /* One-time migration: local JSON store -> Firestore.
    Requires the Admin SDK service-account key (FIREBASE_* env vars).
@@ -96,6 +96,7 @@ export async function POST() {
     batch.set(f.collection("meta").doc("counters"), { orderSeq: local.orderSeq });
   }
   await batch.commit();
+  invalidateReadCache();
 
   return NextResponse.json({ ok: true, migrated });
 }

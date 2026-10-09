@@ -120,6 +120,63 @@ export async function getLocalStore(): Promise<LocalStore> {
 
 const db = () => adminDb();
 
+/* ---------- read cache ---------- */
+/* Short-lived in-memory cache for Firestore reads. A production build
+   prerenders ~200 pages; without this, every page re-reads the same
+   collections and a handful of builds can exhaust the Firestore free
+   read quota (50k/day). With the cache, one build costs a few hundred
+   reads instead of ~10k. Mutations invalidate it (see below). */
+const READ_CACHE_TTL_MS = 60_000;
+const readCache = new Map<string, { at: number; value: unknown }>();
+
+type FirestoreDb = NonNullable<ReturnType<typeof adminDb>>;
+
+/* Last-known-good snapshots: when Firestore is reachable we remember what it
+   returned, so a later outage (quota, network) serves real data instead of
+   the seed catalog. Per-instance memory only. */
+const lastGood = new Map<string, unknown>();
+
+/**
+ * Resilient read pipeline:
+ *  1. short-lived cache (60s) — also slashes build-time reads ~30x
+ *  2. Firestore (when configured)
+ *  3. last-known-good snapshot from this instance
+ *  4. local seeded store (never throws, even on read-only filesystems)
+ * Firestore errors are logged, never thrown to pages.
+ */
+async function resilientRead<T>(
+  key: string,
+  fromFirestore: (f: FirestoreDb) => Promise<T>,
+  fromLocal: () => Promise<T>
+): Promise<T> {
+  const hit = readCache.get(key);
+  if (hit && Date.now() - hit.at < READ_CACHE_TTL_MS) return structuredClone(hit.value) as T;
+  const f = db();
+  if (f) {
+    try {
+      const value = await fromFirestore(f);
+      readCache.set(key, { at: Date.now(), value });
+      lastGood.set(key, value);
+      return structuredClone(value) as T;
+    } catch (err) {
+      console.warn(
+        `[db] Firestore read "${key}" failed; serving last-known data.`,
+        (err as Error)?.message ?? err
+      );
+    }
+  }
+  if (lastGood.has(key)) return structuredClone(lastGood.get(key)) as T;
+  const value = await fromLocal();
+  readCache.set(key, { at: Date.now(), value });
+  return structuredClone(value) as T;
+}
+
+/** Clear the read cache — called after every mutation. Exported so the
+    one-time admin migration route can also invalidate. */
+export function invalidateReadCache(): void {
+  readCache.clear();
+}
+
 /* ---------- helpers ---------- */
 
 function slugify(name: string): string {
@@ -139,213 +196,262 @@ function uniqueSlug(base: string, taken: Set<string>): string {
 /* ---------- products ---------- */
 
 export async function listProducts(): Promise<Product[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("products").orderBy("createdAt", "desc").get();
-    return snap.docs.map((d) => d.data() as Product);
-  }
-  const s = await loadLocal();
-  return [...s.products].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return resilientRead(
+    "products:all",
+    async (f) => {
+        const snap = await f.collection("products").orderBy("createdAt", "desc").get();
+        return snap.docs.map((d) => d.data() as Product);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.products].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  );
 }
 
 export async function getProduct(slugOrId: string): Promise<Product | null> {
-  const f = db();
-  if (f) {
-    const byId = await f.collection("products").doc(slugOrId).get();
-    if (byId.exists) return byId.data() as Product;
-    const q = await f.collection("products").where("slug", "==", slugOrId).limit(1).get();
-    return q.empty ? null : (q.docs[0].data() as Product);
-  }
-  const s = await loadLocal();
-  return s.products.find((p) => p.slug === slugOrId || p.id === slugOrId) ?? null;
+  return resilientRead(
+    `product:${slugOrId}`,
+    async (f) => {
+        const byId = await f.collection("products").doc(slugOrId).get();
+        if (byId.exists) return byId.data() as Product;
+        const q = await f.collection("products").where("slug", "==", slugOrId).limit(1).get();
+        return q.empty ? null : (q.docs[0].data() as Product);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return s.products.find((p) => p.slug === slugOrId || p.id === slugOrId) ?? null;
+    }
+  );
 }
 
 export async function saveProduct(input: Partial<Product> & { name: string }): Promise<Product> {
-  const f = db();
-  const nowIso = new Date().toISOString();
-  if (f) {
-    const col = f.collection("products");
-    if (input.id) {
-      const ref = col.doc(input.id);
-      const existing = (await ref.get()).data() as Product | undefined;
-      const merged: Product = {
-        ...(existing as Product),
-        ...input,
-        slug: input.slug || existing?.slug || slugify(input.name),
-        updatedAt: nowIso,
-      } as Product;
-      await ref.set(merged, { merge: true });
-      return merged;
-    }
-    const all = await listProducts();
-    const id = `prod-${Date.now()}`;
-    const product: Product = {
-      id,
-      slug: uniqueSlug(slugify(input.name), new Set(all.map((p) => p.slug))),
-      sub: "",
-      description: "",
-      price: 0,
-      category: "3-seater-sofas",
-      type: "three",
-      fabric: "#D8CBB4",
-      bg: "#EFE8DC",
-      accent: "#B65A35",
-      inStock: true,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      ...input,
-    } as Product;
-    await col.doc(id).set(product);
-    return product;
-  }
-  return mutateLocal((s) => {
-    if (input.id) {
-      const i = s.products.findIndex((p) => p.id === input.id);
-      if (i >= 0) {
-        s.products[i] = { ...s.products[i], ...input, updatedAt: nowIso } as Product;
-        return s.products[i];
+  try {
+    const f = db();
+    const nowIso = new Date().toISOString();
+    if (f) {
+      const col = f.collection("products");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const existing = (await ref.get()).data() as Product | undefined;
+        const merged: Product = {
+          ...(existing as Product),
+          ...input,
+          slug: input.slug || existing?.slug || slugify(input.name),
+          updatedAt: nowIso,
+        } as Product;
+        await ref.set(merged, { merge: true });
+        return merged;
       }
+      // Fresh read for slug uniqueness (bypass the 60s read cache).
+      invalidateReadCache();
+      const all = await listProducts();
+      const id = `prod-${Date.now()}`;
+      const product: Product = {
+        id,
+        slug: uniqueSlug(slugify(input.name), new Set(all.map((p) => p.slug))),
+        sub: "",
+        description: "",
+        price: 0,
+        category: "3-seater-sofas",
+        type: "three",
+        fabric: "#D8CBB4",
+        bg: "#EFE8DC",
+        accent: "#B65A35",
+        inStock: true,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        ...input,
+      } as Product;
+      await col.doc(id).set(product);
+      return product;
     }
-    const product: Product = {
-      id: `prod-${Date.now()}`,
-      slug: uniqueSlug(slugify(input.name), new Set(s.products.map((p) => p.slug))),
-      sub: "",
-      description: "",
-      price: 0,
-      category: "3-seater-sofas",
-      type: "three",
-      fabric: "#D8CBB4",
-      bg: "#EFE8DC",
-      accent: "#B65A35",
-      inStock: true,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      ...input,
-    } as Product;
-    s.products.push(product);
-    return product;
-  });
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.products.findIndex((p) => p.id === input.id);
+        if (i >= 0) {
+          s.products[i] = { ...s.products[i], ...input, updatedAt: nowIso } as Product;
+          return s.products[i];
+        }
+      }
+      const product: Product = {
+        id: `prod-${Date.now()}`,
+        slug: uniqueSlug(slugify(input.name), new Set(s.products.map((p) => p.slug))),
+        sub: "",
+        description: "",
+        price: 0,
+        category: "3-seater-sofas",
+        type: "three",
+        fabric: "#D8CBB4",
+        bg: "#EFE8DC",
+        accent: "#B65A35",
+        inStock: true,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        ...input,
+      } as Product;
+      s.products.push(product);
+      return product;
+    });
+
+  } finally {
+    invalidateReadCache();
+  }
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const f = db();
-  if (f) {
-    await f.collection("products").doc(id).delete();
-    return;
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("products").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.products = s.products.filter((p) => p.id !== id);
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  await mutateLocal((s) => {
-    s.products = s.products.filter((p) => p.id !== id);
-  });
 }
 
 export async function listCategories(): Promise<Category[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("categories").get();
-    if (snap.empty) {
-      // first run: seed categories
-      const batch = f.batch();
-      for (const c of seedCategories) batch.set(f.collection("categories").doc(c.id), c);
-      await batch.commit();
-      return seedCategories;
+  return resilientRead(
+    "categories:all",
+    async (f) => {
+        const snap = await f.collection("categories").get();
+        if (snap.empty) {
+          // first run: seed categories
+          const batch = f.batch();
+          for (const c of seedCategories) batch.set(f.collection("categories").doc(c.id), c);
+          await batch.commit();
+          return seedCategories;
+        }
+        return snap.docs.map((d) => d.data() as Category);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return s.categories;
     }
-    return snap.docs.map((d) => d.data() as Category);
-  }
-  const s = await loadLocal();
-  return s.categories;
+  );
 }
 
 export async function saveCategory(input: Partial<Category> & { name: string }): Promise<Category> {
-  const f = db();
-  if (f) {
-    const col = f.collection("categories");
-    if (input.id) {
-      const ref = col.doc(input.id);
-      const existing = (await ref.get()).data() as Category | undefined;
-      const merged = { ...(existing as Category), ...input } as Category;
-      await ref.set(merged, { merge: true });
-      return merged;
-    }
-    const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const all = await listCategories();
-    const taken = new Set(all.map((c) => c.slug));
-    let slug = slugBase;
-    let i = 2;
-    while (taken.has(slug)) slug = `${slugBase}-${i++}`;
-    const category: Category = {
-      id: `cat-${slug}`,
-      slug,
-      type: "three",
-      fabric: "#D8CBB4",
-      bg: "#EFE8DC",
-      ...input,
-    } as Category;
-    await col.doc(category.id).set(category);
-    return category;
-  }
-  return mutateLocal((s) => {
-    if (input.id) {
-      const idx = s.categories.findIndex((c) => c.id === input.id);
-      if (idx >= 0) {
-        s.categories[idx] = { ...s.categories[idx], ...input } as Category;
-        return s.categories[idx];
+  try {
+    const f = db();
+    if (f) {
+      const col = f.collection("categories");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const existing = (await ref.get()).data() as Category | undefined;
+        const merged = { ...(existing as Category), ...input } as Category;
+        await ref.set(merged, { merge: true });
+        return merged;
       }
+      const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      // Fresh read for slug uniqueness (bypass the 60s read cache).
+      invalidateReadCache();
+      const all = await listCategories();
+      const taken = new Set(all.map((c) => c.slug));
+      let slug = slugBase;
+      let i = 2;
+      while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+      const category: Category = {
+        id: `cat-${slug}`,
+        slug,
+        type: "three",
+        fabric: "#D8CBB4",
+        bg: "#EFE8DC",
+        ...input,
+      } as Category;
+      await col.doc(category.id).set(category);
+      return category;
     }
-    if (input.slug && s.categories.some((c) => c.slug === input.slug)) {
-      return s.categories.find((c) => c.slug === input.slug)!;
-    }
-    const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const taken = new Set(s.categories.map((c) => c.slug));
-    let slug = slugBase;
-    let i = 2;
-    while (taken.has(slug)) slug = `${slugBase}-${i++}`;
-    const category: Category = {
-      id: `cat-${slug}`,
-      slug,
-      type: "three",
-      fabric: "#D8CBB4",
-      bg: "#EFE8DC",
-      ...input,
-    } as Category;
-    s.categories.push(category);
-    return category;
-  });
+    return mutateLocal((s) => {
+      if (input.id) {
+        const idx = s.categories.findIndex((c) => c.id === input.id);
+        if (idx >= 0) {
+          s.categories[idx] = { ...s.categories[idx], ...input } as Category;
+          return s.categories[idx];
+        }
+      }
+      if (input.slug && s.categories.some((c) => c.slug === input.slug)) {
+        return s.categories.find((c) => c.slug === input.slug)!;
+      }
+      const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const taken = new Set(s.categories.map((c) => c.slug));
+      let slug = slugBase;
+      let i = 2;
+      while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+      const category: Category = {
+        id: `cat-${slug}`,
+        slug,
+        type: "three",
+        fabric: "#D8CBB4",
+        bg: "#EFE8DC",
+        ...input,
+      } as Category;
+      s.categories.push(category);
+      return category;
+    });
+
+  } finally {
+    invalidateReadCache();
+  }
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const f = db();
-  if (f) {
-    await f.collection("categories").doc(id).delete();
-    return;
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("categories").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.categories = s.categories.filter((c) => c.id !== id);
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  await mutateLocal((s) => {
-    s.categories = s.categories.filter((c) => c.id !== id);
-  });
 }
 
 /* ---------- orders ---------- */
 
 export async function listOrders(): Promise<Order[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("orders").orderBy("createdAt", "desc").get();
-    return snap.docs.map((d) => d.data() as Order);
-  }
-  const s = await loadLocal();
-  return [...s.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return resilientRead(
+    "orders:all",
+    async (f) => {
+        const snap = await f.collection("orders").orderBy("createdAt", "desc").get();
+        return snap.docs.map((d) => d.data() as Order);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  );
 }
 
 export async function getOrder(idOrNumber: string): Promise<Order | null> {
-  const f = db();
-  if (f) {
-    const byId = await f.collection("orders").doc(idOrNumber).get();
-    if (byId.exists) return byId.data() as Order;
-    const q = await f.collection("orders").where("number", "==", idOrNumber.toUpperCase()).limit(1).get();
-    return q.empty ? null : (q.docs[0].data() as Order);
-  }
-  const s = await loadLocal();
-  return (
-    s.orders.find((o) => o.id === idOrNumber || o.number === idOrNumber.toUpperCase()) ?? null
+  return resilientRead(
+    `order:${idOrNumber}`,
+    async (f) => {
+        const byId = await f.collection("orders").doc(idOrNumber).get();
+        if (byId.exists) return byId.data() as Order;
+        const q = await f.collection("orders").where("number", "==", idOrNumber.toUpperCase()).limit(1).get();
+        return q.empty ? null : (q.docs[0].data() as Order);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return (
+        s.orders.find((o) => o.id === idOrNumber || o.number === idOrNumber.toUpperCase()) ?? null
+      );
+    }
   );
 }
 
@@ -355,57 +461,62 @@ export async function createOrder(input: {
   deliverySlot?: string;
   paymentMethod: Order["paymentMethod"];
 }): Promise<Order> {
-  const nowIso = new Date().toISOString();
-  const subtotal = input.items.reduce((s, i) => s + i.price * i.qty, 0);
-  const settings = await getSettings();
-  const deliveryFee = subtotal >= settings.freeDeliveryThreshold || subtotal === 0 ? 0 : 29;
-  const f = db();
-  if (f) {
-    const counter = f.collection("meta").doc("counters");
-    const seq = await f.runTransaction(async (tx) => {
-      const snap = await tx.get(counter);
-      const next = ((snap.data()?.orderSeq as number) || 1001);
-      tx.set(counter, { orderSeq: next + 1 }, { merge: true });
-      return next;
+  try {
+    const nowIso = new Date().toISOString();
+    const subtotal = input.items.reduce((s, i) => s + i.price * i.qty, 0);
+    const settings = await getSettings();
+    const deliveryFee = subtotal >= settings.freeDeliveryThreshold || subtotal === 0 ? 0 : 29;
+    const f = db();
+    if (f) {
+      const counter = f.collection("meta").doc("counters");
+      const seq = await f.runTransaction(async (tx) => {
+        const snap = await tx.get(counter);
+        const next = ((snap.data()?.orderSeq as number) || 1001);
+        tx.set(counter, { orderSeq: next + 1 }, { merge: true });
+        return next;
+      });
+      const id = `ord-${Date.now()}`;
+      const order: Order = {
+        id,
+        number: `SOF-${seq}`,
+        items: input.items,
+        subtotal,
+        deliveryFee,
+        total: subtotal + deliveryFee,
+        customer: input.customer,
+        deliverySlot: input.deliverySlot,
+        paymentMethod: input.paymentMethod,
+        status: "new",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
+      };
+      await f.collection("orders").doc(id).set(order);
+      return order;
+    }
+    return mutateLocal((s) => {
+      const order: Order = {
+        id: `ord-${Date.now()}`,
+        number: `SOF-${s.orderSeq++}`,
+        items: input.items,
+        subtotal,
+        deliveryFee,
+        total: subtotal + deliveryFee,
+        customer: input.customer,
+        deliverySlot: input.deliverySlot,
+        paymentMethod: input.paymentMethod,
+        status: "new",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
+      };
+      s.orders.push(order);
+      return order;
     });
-    const id = `ord-${Date.now()}`;
-    const order: Order = {
-      id,
-      number: `SOF-${seq}`,
-      items: input.items,
-      subtotal,
-      deliveryFee,
-      total: subtotal + deliveryFee,
-      customer: input.customer,
-      deliverySlot: input.deliverySlot,
-      paymentMethod: input.paymentMethod,
-      status: "new",
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
-    };
-    await f.collection("orders").doc(id).set(order);
-    return order;
+
+  } finally {
+    invalidateReadCache();
   }
-  return mutateLocal((s) => {
-    const order: Order = {
-      id: `ord-${Date.now()}`,
-      number: `SOF-${s.orderSeq++}`,
-      items: input.items,
-      subtotal,
-      deliveryFee,
-      total: subtotal + deliveryFee,
-      customer: input.customer,
-      deliverySlot: input.deliverySlot,
-      paymentMethod: input.paymentMethod,
-      status: "new",
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
-    };
-    s.orders.push(order);
-    return order;
-  });
 }
 
 export async function updateOrderStatus(
@@ -413,92 +524,117 @@ export async function updateOrderStatus(
   status: OrderStatus,
   note?: string
 ): Promise<Order | null> {
-  const nowIso = new Date().toISOString();
-  const f = db();
-  if (f) {
-    const ref = f.collection("orders").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return null;
-    const order = snap.data() as Order;
-    order.status = status;
-    order.updatedAt = nowIso;
-    order.timeline.push({ status, at: nowIso, note });
-    await ref.set(order);
-    return order;
+  try {
+    const nowIso = new Date().toISOString();
+    const f = db();
+    if (f) {
+      const ref = f.collection("orders").doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return null;
+      const order = snap.data() as Order;
+      order.status = status;
+      order.updatedAt = nowIso;
+      order.timeline.push({ status, at: nowIso, note });
+      await ref.set(order);
+      return order;
+    }
+    return mutateLocal((s) => {
+      const order = s.orders.find((o) => o.id === id);
+      if (!order) return null;
+      order.status = status;
+      order.updatedAt = nowIso;
+      order.timeline.push({ status, at: nowIso, note });
+      return order;
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  return mutateLocal((s) => {
-    const order = s.orders.find((o) => o.id === id);
-    if (!order) return null;
-    order.status = status;
-    order.updatedAt = nowIso;
-    order.timeline.push({ status, at: nowIso, note });
-    return order;
-  });
 }
 
 /* ---------- content: faqs / reviews / settings ---------- */
 
 export async function listFaqs(): Promise<Faq[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("faqs").orderBy("order").get();
-    if (snap.empty) {
-      const batch = f.batch();
-      for (const q of seedFaqs) batch.set(f.collection("faqs").doc(q.id), q);
-      await batch.commit();
-      return seedFaqs;
+  return resilientRead(
+    "faqs:all",
+    async (f) => {
+        const snap = await f.collection("faqs").orderBy("order").get();
+        if (snap.empty) {
+          const batch = f.batch();
+          for (const q of seedFaqs) batch.set(f.collection("faqs").doc(q.id), q);
+          await batch.commit();
+          return seedFaqs;
+        }
+        return snap.docs.map((d) => d.data() as Faq);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.faqs].sort((a, b) => a.order - b.order);
     }
-    return snap.docs.map((d) => d.data() as Faq);
-  }
-  const s = await loadLocal();
-  return [...s.faqs].sort((a, b) => a.order - b.order);
+  );
 }
 
 export async function saveFaqs(faqs: Faq[]): Promise<Faq[]> {
-  const f = db();
-  if (f) {
-    const batch = f.batch();
-    for (const q of faqs) batch.set(f.collection("faqs").doc(q.id), q, { merge: true });
-    await batch.commit();
-    return faqs;
+  try {
+    const f = db();
+    if (f) {
+      const batch = f.batch();
+      for (const q of faqs) batch.set(f.collection("faqs").doc(q.id), q, { merge: true });
+      await batch.commit();
+      return faqs;
+    }
+    return mutateLocal((s) => {
+      s.faqs = faqs;
+      return faqs;
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  return mutateLocal((s) => {
-    s.faqs = faqs;
-    return faqs;
-  });
 }
 
 /* ---------- content: blog posts ---------- */
 
 export async function listPosts(publishedOnly = false): Promise<Post[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("posts").orderBy("publishedAt", "desc").get();
-    if (snap.empty && !publishedOnly) {
-      // first run: seed posts
-      const batch = f.batch();
-      for (const p of seedPosts) batch.set(f.collection("posts").doc(p.id), p);
-      await batch.commit();
-      return seedPosts;
+  return resilientRead(
+    `posts:${publishedOnly}`,
+    async (f) => {
+        const snap = await f.collection("posts").orderBy("publishedAt", "desc").get();
+        if (snap.empty && !publishedOnly) {
+          // first run: seed posts
+          const batch = f.batch();
+          for (const p of seedPosts) batch.set(f.collection("posts").doc(p.id), p);
+          await batch.commit();
+          return seedPosts;
+        }
+        const all = snap.docs.map((d) => d.data() as Post);
+        return publishedOnly ? all.filter((p) => p.status === "published") : all;
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      const all = [...s.posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+      return publishedOnly ? all.filter((p) => p.status === "published") : all;
     }
-    const all = snap.docs.map((d) => d.data() as Post);
-    return publishedOnly ? all.filter((p) => p.status === "published") : all;
-  }
-  const s = await loadLocal();
-  const all = [...s.posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-  return publishedOnly ? all.filter((p) => p.status === "published") : all;
+  );
 }
 
 export async function getPost(slugOrId: string): Promise<Post | null> {
-  const f = db();
-  if (f) {
-    const byId = await f.collection("posts").doc(slugOrId).get();
-    if (byId.exists) return byId.data() as Post;
-    const q = await f.collection("posts").where("slug", "==", slugOrId).limit(1).get();
-    return q.empty ? null : (q.docs[0].data() as Post);
-  }
-  const s = await loadLocal();
-  return s.posts.find((p) => p.slug === slugOrId || p.id === slugOrId) ?? null;
+  return resilientRead(
+    `post:${slugOrId}`,
+    async (f) => {
+        const byId = await f.collection("posts").doc(slugOrId).get();
+        if (byId.exists) return byId.data() as Post;
+        const q = await f.collection("posts").where("slug", "==", slugOrId).limit(1).get();
+        return q.empty ? null : (q.docs[0].data() as Post);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return s.posts.find((p) => p.slug === slugOrId || p.id === slugOrId) ?? null;
+    }
+  );
 }
 
 function normalizePost(input: Partial<Post> & { title: string }): Partial<Post> {
@@ -518,125 +654,155 @@ function normalizePost(input: Partial<Post> & { title: string }): Partial<Post> 
 }
 
 export async function savePost(input: Partial<Post> & { title: string }): Promise<Post> {
-  const f = db();
-  const nowIso = new Date().toISOString();
-  if (f) {
-    const col = f.collection("posts");
-    if (input.id) {
-      const ref = col.doc(input.id);
-      const existing = (await ref.get()).data() as Post | undefined;
-      const merged: Post = {
-        ...(existing as Post),
-        ...normalizePost(input),
-        slug: input.slug || existing?.slug || slugify(input.title),
-        updatedAt: nowIso,
-      } as Post;
-      await ref.set(merged, { merge: true });
-      return merged;
-    }
-    const all = await listPosts();
-    const post: Post = {
-      id: `post-${Date.now()}`,
-      slug: uniqueSlug(slugify(input.title), new Set(all.map((p) => p.slug))),
-      excerpt: "",
-      content: "",
-      tags: [],
-      status: "draft",
-      publishedAt: nowIso,
-      updatedAt: nowIso,
-      ...normalizePost(input),
-    } as Post;
-    await col.doc(post.id).set(post);
-    return post;
-  }
-  return mutateLocal((s) => {
-    if (input.id) {
-      const i = s.posts.findIndex((p) => p.id === input.id);
-      if (i >= 0) {
-        s.posts[i] = { ...s.posts[i], ...normalizePost(input), updatedAt: nowIso } as Post;
-        return s.posts[i];
+  try {
+    const f = db();
+    const nowIso = new Date().toISOString();
+    if (f) {
+      const col = f.collection("posts");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const existing = (await ref.get()).data() as Post | undefined;
+        const merged: Post = {
+          ...(existing as Post),
+          ...normalizePost(input),
+          slug: input.slug || existing?.slug || slugify(input.title),
+          updatedAt: nowIso,
+        } as Post;
+        await ref.set(merged, { merge: true });
+        return merged;
       }
+      const all = await listPosts();
+      const post: Post = {
+        id: `post-${Date.now()}`,
+        slug: uniqueSlug(slugify(input.title), new Set(all.map((p) => p.slug))),
+        excerpt: "",
+        content: "",
+        tags: [],
+        status: "draft",
+        publishedAt: nowIso,
+        updatedAt: nowIso,
+        ...normalizePost(input),
+      } as Post;
+      await col.doc(post.id).set(post);
+      return post;
     }
-    const post: Post = {
-      id: `post-${Date.now()}`,
-      slug: uniqueSlug(slugify(input.title), new Set(s.posts.map((p) => p.slug))),
-      excerpt: "",
-      content: "",
-      tags: [],
-      status: "draft",
-      publishedAt: nowIso,
-      updatedAt: nowIso,
-      ...normalizePost(input),
-    } as Post;
-    s.posts.push(post);
-    return post;
-  });
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.posts.findIndex((p) => p.id === input.id);
+        if (i >= 0) {
+          s.posts[i] = { ...s.posts[i], ...normalizePost(input), updatedAt: nowIso } as Post;
+          return s.posts[i];
+        }
+      }
+      const post: Post = {
+        id: `post-${Date.now()}`,
+        slug: uniqueSlug(slugify(input.title), new Set(s.posts.map((p) => p.slug))),
+        excerpt: "",
+        content: "",
+        tags: [],
+        status: "draft",
+        publishedAt: nowIso,
+        updatedAt: nowIso,
+        ...normalizePost(input),
+      } as Post;
+      s.posts.push(post);
+      return post;
+    });
+
+  } finally {
+    invalidateReadCache();
+  }
 }
 
 export async function deletePost(id: string): Promise<void> {
-  const f = db();
-  if (f) {
-    await f.collection("posts").doc(id).delete();
-    return;
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("posts").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.posts = s.posts.filter((p) => p.id !== id);
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  await mutateLocal((s) => {
-    s.posts = s.posts.filter((p) => p.id !== id);
-  });
 }
 
 export async function listReviews(): Promise<Review[]> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("reviews").orderBy("order").get();
-    if (snap.empty) {
-      const batch = f.batch();
-      for (const r of seedReviews) batch.set(f.collection("reviews").doc(r.id), r);
-      await batch.commit();
-      return seedReviews;
+  return resilientRead(
+    "reviews:all",
+    async (f) => {
+        const snap = await f.collection("reviews").orderBy("order").get();
+        if (snap.empty) {
+          const batch = f.batch();
+          for (const r of seedReviews) batch.set(f.collection("reviews").doc(r.id), r);
+          await batch.commit();
+          return seedReviews;
+        }
+        return snap.docs.map((d) => d.data() as Review);
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.reviews].sort((a, b) => a.order - b.order);
     }
-    return snap.docs.map((d) => d.data() as Review);
-  }
-  const s = await loadLocal();
-  return [...s.reviews].sort((a, b) => a.order - b.order);
+  );
 }
 
 export async function saveReviews(reviews: Review[]): Promise<Review[]> {
-  const f = db();
-  if (f) {
-    const batch = f.batch();
-    for (const r of reviews) batch.set(f.collection("reviews").doc(r.id), r, { merge: true });
-    await batch.commit();
-    return reviews;
+  try {
+    const f = db();
+    if (f) {
+      const batch = f.batch();
+      for (const r of reviews) batch.set(f.collection("reviews").doc(r.id), r, { merge: true });
+      await batch.commit();
+      return reviews;
+    }
+    return mutateLocal((s) => {
+      s.reviews = reviews;
+      return reviews;
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  return mutateLocal((s) => {
-    s.reviews = reviews;
-    return reviews;
-  });
 }
 
 export async function getSettings(): Promise<SiteSettings> {
-  const f = db();
-  if (f) {
-    const snap = await f.collection("settings").doc("site").get();
-    if (!snap.exists) {
-      await f.collection("settings").doc("site").set(seedSettings);
-      return seedSettings;
+  return resilientRead(
+    "settings",
+    async (f) => {
+        const snap = await f.collection("settings").doc("site").get();
+        if (!snap.exists) {
+          await f.collection("settings").doc("site").set(seedSettings);
+          return seedSettings;
+        }
+        return { ...seedSettings, ...(snap.data() as Partial<SiteSettings>) };
+    
+    },
+    async () => {
+      const s = await loadLocal();
+      return s.settings;
     }
-    return { ...seedSettings, ...(snap.data() as Partial<SiteSettings>) };
-  }
-  const s = await loadLocal();
-  return s.settings;
+  );
 }
 
 export async function saveSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
-  const f = db();
-  if (f) {
-    const ref = f.collection("settings").doc("site");
-    await ref.set(patch, { merge: true });
-    return getSettings();
+  try {
+    const f = db();
+    if (f) {
+      const ref = f.collection("settings").doc("site");
+      await ref.set(patch, { merge: true });
+      return getSettings();
+    }
+    return mutateLocal((s) => {
+      s.settings = { ...s.settings, ...patch };
+      return s.settings;
+    });
+
+  } finally {
+    invalidateReadCache();
   }
-  return mutateLocal((s) => {
-    s.settings = { ...s.settings, ...patch };
-    return s.settings;
-  });
 }
