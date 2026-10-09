@@ -15,55 +15,11 @@ import {
 } from "./Icons";
 import SofaIllustration from "./SofaIllustration";
 
-const MENU_GROUPS: { label: string; href: string; slugs: string[] }[] = [
-  {
-    label: "Sofas",
-    href: "/sofas",
-    slugs: [
-      "sofas",
-      "3-seater-sofas",
-      "2-seater-sofas",
-      "4-seater-sofas",
-      "corner-sofas",
-      "3-plus-2-sets",
-      "armchairs",
-      "recliners",
-      "sofa-beds",
-      "leather-sofas",
-    ],
-  },
-  {
-    label: "Beds & Bedroom",
-    href: "/sofas?category=beds",
-    slugs: [
-      "beds",
-      "divan-beds",
-      "ottoman-beds",
-      "bunk-kids-beds",
-      "wooden-bed-frames",
-      "luxury-beds",
-      "headboards",
-      "mattresses",
-      "wardrobes",
-      "chest-of-drawers",
-    ],
-  },
-  {
-    label: "Tables & Storage",
-    href: "/sofas?category=coffee-tables",
-    slugs: [
-      "coffee-tables",
-      "console-tables",
-      "desks",
-      "dining-tables",
-      "dining-chairs",
-      "tv-units",
-      "living-room-furniture",
-    ],
-  },
-];
-
 const SALE_LINK = { label: "Sale", href: "/sofas?sale=1" };
+
+/* Menu groups are built from the `menu` field on categories (editable in
+   Admin → Categories). Nothing is hardcoded: rename a group or move a
+   category there and the navbar follows. */
 
 function useMenuData() {
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -176,14 +132,17 @@ export function Header() {
     closeTimer.current = window.setTimeout(() => setOpenMenu(null), 150);
   };
 
-  const groupCats = (slugs: string[]) =>
-    slugs
-      .map((s) => categories?.find((c) => c.slug === s))
-      .filter((c): c is Category => Boolean(c));
-  const popularCats = (slugs: string[]) =>
-    groupCats(slugs)
-      .sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0))
-      .slice(0, 4);
+  /* Navbar menu groups, derived live from the database. */
+  const menuGroups = (() => {
+    const map = new Map<string, Category[]>();
+    for (const c of categories ?? []) {
+      if (!c.menu?.trim()) continue;
+      const label = c.menu.trim();
+      if (!map.has(label)) map.set(label, []);
+      map.get(label)!.push(c);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  })();
 
   return (
     <header className="bg-cream border-b border-line sticky top-0 z-40">
@@ -203,25 +162,26 @@ export function Header() {
         </Link>
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
-          {MENU_GROUPS.map((g) => {
-            const cats = groupCats(g.slugs);
-            const popular = popularCats(g.slugs);
-            const isOpen = openMenu === g.label;
+          {menuGroups.map(([label, cats]) => {
+            const popular = [...cats]
+              .sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0))
+              .slice(0, 4);
+            const isOpen = openMenu === label;
             return (
               <div
-                key={g.label}
+                key={label}
                 className="relative"
-                onMouseEnter={() => showMenu(g.label)}
+                onMouseEnter={() => showMenu(label)}
                 onMouseLeave={scheduleHide}
               >
                 <Link
-                  href={g.href}
+                  href="/sofas"
                   className="py-2.5 hover:opacity-70 flex items-center gap-1.5"
                   aria-haspopup="true"
                   aria-expanded={isOpen}
                   onClick={() => setOpenMenu(null)}
                 >
-                  {g.label}
+                  {label}
                   <IconChevronDown
                     size={14}
                     className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -257,11 +217,11 @@ export function Header() {
                           </ul>
                         )}
                         <Link
-                          href={g.href}
+                          href="/sofas"
                           onClick={() => setOpenMenu(null)}
                           className="inline-block mt-3 text-[14px] font-semibold text-forest underline underline-offset-4"
                         >
-                          View all {g.label.toLowerCase()}
+                          View all {label.toLowerCase()}
                         </Link>
                       </div>
                       <div>
@@ -367,17 +327,16 @@ export function Header() {
                 <IconX />
               </button>
             </div>
-            {MENU_GROUPS.map((g) => {
-              const cats = groupCats(g.slugs);
-              const isExpanded = expanded === g.label;
+            {menuGroups.map(([label, cats]) => {
+              const isExpanded = expanded === label;
               return (
-                <div key={g.label} className="border-b border-line">
+                <div key={label} className="border-b border-line">
                   <button
                     className="w-full flex items-center justify-between py-3 text-lg font-medium"
                     aria-expanded={isExpanded}
-                    onClick={() => setExpanded(isExpanded ? null : g.label)}
+                    onClick={() => setExpanded(isExpanded ? null : label)}
                   >
-                    {g.label}
+                    {label}
                     <IconChevronDown
                       size={18}
                       className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
@@ -438,7 +397,13 @@ export function Header() {
   );
 }
 
-export function Footer({ settings }: { settings: { phone: string; email: string; address: string } }) {
+export function Footer({
+  settings,
+  shopLinks,
+}: {
+  settings: { phone: string; email: string; address: string };
+  shopLinks: { label: string; href: string }[];
+}) {
   return (
     <footer className="bg-forest text-mint">
       <div className="mx-auto max-w-7xl px-6 pt-16 pb-10 flex flex-wrap gap-10">
@@ -451,9 +416,11 @@ export function Footer({ settings }: { settings: { phone: string; email: string;
         <nav className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]" aria-label="Shop">
           <span className="label-caps text-peach! mb-1.5">Shop</span>
           <Link href="/sofas" className="hover:opacity-70">All sofas</Link>
-          <Link href="/sofas?category=corner-sofas" className="hover:opacity-70">Corner sofas</Link>
-          <Link href="/sofas?category=3-plus-2-sets" className="hover:opacity-70">3+2 sets</Link>
-          <Link href="/sofas?category=armchairs" className="hover:opacity-70">Armchairs</Link>
+          {shopLinks.map((l) => (
+            <Link key={l.href} href={l.href} className="hover:opacity-70 capitalize">
+              {l.label}
+            </Link>
+          ))}
         </nav>
         <nav className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]" aria-label="Help">
           <span className="label-caps text-peach! mb-1.5">Help</span>

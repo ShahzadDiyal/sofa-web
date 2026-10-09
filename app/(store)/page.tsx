@@ -29,12 +29,14 @@ export default async function HomePage() {
     listReviews(),
     getSettings(),
   ]);
-  const featured = products.filter((p) => p.featured && p.inStock).slice(0, 4);
+  const inStock = products.filter((p) => p.inStock);
+  const featured = inStock.filter((p) => p.featured).slice(0, 4);
+  const bestsellers = featured.length > 0 ? featured : inStock.slice(0, 4);
   const catBySlug = new Map(categories.map((c) => [c.slug, c]));
 
   return (
     <>
-      <JsonLd data={itemListJsonLd(featured, "Bestselling sofas at Sofora", "/")} />
+      <JsonLd data={itemListJsonLd(bestsellers, "Bestselling sofas at Sofora", "/")} />
 
       {/* ── Hero ── */}
       <section className="mx-auto max-w-7xl px-6 pt-14 pb-20 flex flex-wrap gap-12 items-center">
@@ -171,7 +173,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {featured.map((p) => (
+            {bestsellers.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>

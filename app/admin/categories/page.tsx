@@ -33,6 +33,7 @@ type FormState = {
   name: string;
   slug: string;
   blurb: string;
+  menu: string;
   type: SofaType;
   fabric: string;
   bg: string;
@@ -42,6 +43,7 @@ const emptyForm: FormState = {
   name: "",
   slug: "",
   blurb: "",
+  menu: "",
   type: "three",
   fabric: "#D8CBB4",
   bg: "#EFE8DC",
@@ -89,7 +91,7 @@ export default function CategoriesPage() {
     setSlugTouched(false);
   };
   const openEdit = (c: Category) => {
-    setForm({ id: c.id, name: c.name, slug: c.slug, blurb: c.blurb ?? "", type: c.type, fabric: c.fabric, bg: c.bg });
+    setForm({ id: c.id, name: c.name, slug: c.slug, blurb: c.blurb ?? "", menu: c.menu ?? "", type: c.type, fabric: c.fabric, bg: c.bg });
     setSlugTouched(true);
   };
 
@@ -97,7 +99,7 @@ export default function CategoriesPage() {
     if (!form || !form.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { ...form, slug: form.slug || slugify(form.name), blurb: form.blurb || undefined };
+      const payload = { ...form, slug: form.slug || slugify(form.name), blurb: form.blurb || undefined, menu: form.menu.trim() || undefined };
       if (form.id) {
         await api(`/api/categories/${form.id}`, "PUT", payload);
       } else {
@@ -246,6 +248,22 @@ export default function CategoriesPage() {
                 placeholder="corner-sofas"
               />
               <p className="text-[13px] text-muted mt-1.5">Used in /sofas?category={form.slug || "…"}</p>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="cat-menu">Menu group <span className="font-normal text-muted">(navbar — leave empty to hide from nav)</span></label>
+              <input
+                id="cat-menu"
+                className={fieldClass}
+                list="menu-groups"
+                value={form.menu}
+                onChange={(e) => setForm((f) => (f ? { ...f, menu: e.target.value } : f))}
+                placeholder="e.g. Sofas"
+              />
+              <datalist id="menu-groups">
+                {Array.from(new Set((categories ?? []).map((c) => c.menu).filter(Boolean))).map((m) => (
+                  <option key={m as string} value={m as string} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className={labelClass} htmlFor="cat-blurb">Description <span className="font-normal text-muted">(optional)</span></label>

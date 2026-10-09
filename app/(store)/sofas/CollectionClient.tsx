@@ -9,14 +9,6 @@ import { Breadcrumbs, JsonLd, ProductCard } from "@/components/storefront";
 import { itemListJsonLd } from "@/lib/seo";
 import { IconCash, IconShield, IconTruck } from "@/components/Icons";
 
-const QUICK = [
-  { label: "All", slug: "" },
-  { label: "3 seater", slug: "3-seater-sofas" },
-  { label: "Corner", slug: "corner-sofas" },
-  { label: "3+2 sets", slug: "3-plus-2-sets" },
-  { label: "Armchair", slug: "armchairs" },
-  { label: "Sofa bed", slug: "sofa-beds" },
-];
 const SEATS = [1, 2, 3, 4];
 const FABRICS = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
 const FEATURES = ["Sofa bed", "Reclining", "Storage"];
@@ -116,6 +108,14 @@ export default function CollectionClient({
     setMinPrice(""); setMaxPrice(""); setSaleOnly(false);
   };
 
+  /* Quick-filter chips, built live from the database: every category that
+     actually has products, in catalogue order. */
+  const quickCats = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+    return categories.filter((c) => (counts.get(c.slug) ?? 0) > 0);
+  }, [products, categories]);
+
   return (
     <>
       <JsonLd data={itemListJsonLd(filtered, activeCat ? `${activeCat.name} at Sofora` : "All sofas at Sofora", "/sofas")} />
@@ -160,16 +160,25 @@ export default function CollectionClient({
           </div>
         </div>
         <div className="flex gap-2.5 flex-wrap mt-7" role="group" aria-label="Quick filters">
-          {QUICK.map((c) => (
+          <button
+            onClick={() => setCat("")}
+            aria-pressed={cat === ""}
+            className={`px-5 py-2.5 rounded-full border-[1.5px] text-[15px] font-medium min-h-[44px] transition-colors ${
+              cat === "" ? "bg-forest border-forest text-cream" : "border-line bg-white hover:border-ink"
+            }`}
+          >
+            All
+          </button>
+          {quickCats.map((c) => (
             <button
-              key={c.label}
+              key={c.slug}
               onClick={() => setCat(c.slug)}
               aria-pressed={cat === c.slug}
               className={`px-5 py-2.5 rounded-full border-[1.5px] text-[15px] font-medium min-h-[44px] transition-colors ${
                 cat === c.slug ? "bg-forest border-forest text-cream" : "border-line bg-white hover:border-ink"
               }`}
             >
-              {c.label}
+              {c.name}
             </button>
           ))}
           <button

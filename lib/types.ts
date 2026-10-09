@@ -40,6 +40,7 @@ export interface Category {
   fabric: string;
   bg: string;
   blurb?: string;
+  menu?: string; // navbar menu group label, e.g. "Sofas" — categories without one don't appear in the nav
 }
 
 export interface BasketItem {
