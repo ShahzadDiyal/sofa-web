@@ -1,0 +1,60 @@
+# Sofora — full reference for AI consumers
+
+> Last updated: 2026-10-09. Currency: GBP. Service area: United Kingdom.
+
+## Business entity
+
+- Name: Sofora
+- Type: Online-only furniture retailer (sofas only)
+- Tagline: "Sofas worth coming home to."
+- Service area: United Kingdom
+- Contact: phone +44 161 000 0000, email hello@sofora.example, address Sofora, Manchester, United Kingdom
+  (placeholder contact details — the live site carries the real ones)
+
+## The pay-on-delivery model (canonical)
+
+1. The customer orders online with name, phone, and delivery address only. No payment details are collected online.
+2. Sofora confirms the order by phone call or text, checking the address and agreeing a delivery slot.
+3. A two-person delivery team brings the sofa to the customer's room of choice.
+4. The customer inspects the sofa (fabric, fit, finish) and then pays the driver.
+5. Accepted payment methods at the door: cash, card machine, bank transfer.
+6. If the customer is not happy at the door, they may refuse delivery and pay nothing.
+
+## Catalogue
+
+Categories: 3 seater sofas, corner sofas, 3+2 sets, armchairs, recliners, sofa beds.
+
+Representative products (prices in GBP, subject to change — see /sofas for the live catalogue):
+- Oslo 3 Seater Sofa — easy-clean oat weave — £649 (was £899)
+- Bergen Corner Sofa — L-shape, soft velvet — £1,149
+- Lund Armchair — bouclé, 1 seater — £329
+- Malmö 3+2 Set — jumbo cord, seats 5 — £1,299 (was £1,599)
+- Skagen 2 Seater Sofa — linen-look, compact — £499
+- Aarhus Corner Sofa Bed — pull-out double bed — £1,349
+- Fyn Recliner Chair — manual recline — £449
+- Odense 3 Seater Sofa Bed — folds to double bed — £749 (was £899)
+
+All sofas: solid hardwood frames, 5-year frame guarantee on many ranges, family-friendly easy-clean fabrics.
+
+## Delivery & policies
+
+- Free UK delivery on orders over £500; £29 below that.
+- Typical delivery time: 7–14 days; slot agreed by phone before dispatch.
+- Inspect at the door before paying; refuse delivery with no charge if not satisfied.
+- Full policies: /delivery, /returns, /privacy.
+
+## Frequently asked questions
+
+- Do I pay anything online? No. You place the order with your details only. Payment is made to the driver when the sofa arrives.
+- How can I pay the driver? Cash, card machine, or bank transfer.
+- What if I don't like it at the door? Inspect before paying; refuse delivery and pay nothing if it isn't right.
+- How long does delivery take? Typically 7–14 days; we call first to agree a slot.
+- More: see the FAQ section on / and /sofas/[slug] pages (FAQPage structured data).
+
+## URLs
+
+- Home: /
+- Catalogue: /sofas (supports ?category=, ?q=, ?sort=)
+- Product: /sofas/[slug]
+- Sitemap: /sitemap.xml
+- This file: /llms-full.txt (summary: /llms.txt)

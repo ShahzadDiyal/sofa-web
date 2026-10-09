@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import { getSettings, saveSettings } from "@/lib/db";
+
+export async function GET() {
+  const settings = await getSettings();
+  return NextResponse.json({ settings });
+}
+
+export async function PATCH(req: Request) {
+  const body = await req.json();
+  const settings = await saveSettings(body);
+  return NextResponse.json({ settings });
+}

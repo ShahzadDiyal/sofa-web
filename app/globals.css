@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Sofora brand palette (from design mockup) */
+  --color-forest: #1f3a32;
+  --color-forest-deep: #2e5247;
+  --color-cream: #f6f1ea;
+  --color-sand: #ebe3d6;
+  --color-peach: #f4e1d6;
+  --color-terra: #b65a35;
+  --color-ink: #1e2421;
+  --color-muted: #646a63;
+  --color-body: #4a514b;
+  --color-line: #ddd3c4;
+  --color-mint: #e3ebe4;
+  --color-mint-soft: #dce5da;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+::selection {
+  background: var(--color-terra);
+  color: #fff;
+}
+
+/* Shared primitives mirroring the mockup's component classes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 15px 26px;
+  border-radius: 999px;
+  font: 600 15px var(--font-sans);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  min-height: 48px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.btn:hover {
+  opacity: 0.88;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--color-forest);
+  color: var(--color-cream);
+}
+.btn-outline {
+  border-color: var(--color-ink);
+  background: transparent;
+  color: var(--color-ink);
+}
+.btn-terra {
+  background: var(--color-terra);
+  color: #fff;
+}
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.label-caps {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.field-input,
+.field-select,
+.field-textarea {
+  width: 100%;
+  border: 1.5px solid var(--color-line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px 14px;
+  font: 500 15px var(--font-sans);
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.field-input:focus,
+.field-select:focus,
+.field-textarea:focus {
+  border-color: var(--color-forest);
+}
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--color-ink);
+}
+
+/* Shimmer skeleton (standing preference: skeletons over spinners) */
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(30, 36, 33, 0.06) 25%,
+    rgba(30, 36, 33, 0.12) 37%,
+    rgba(30, 36, 33, 0.06) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 12px;
+}
+
+/* FAQ accordion (native details, styled) */
+details.faq {
+  border-bottom: 1px solid var(--color-line);
+  padding: 22px 0;
+}
+details.faq summary {
+  cursor: pointer;
+  font: 500 18px var(--font-sans);
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  align-items: center;
+}
+details.faq summary::-webkit-details-marker {
+  display: none;
+}
+details.faq .faq-answer {
+  margin-top: 12px;
+  color: var(--color-muted);
+  line-height: 1.6;
+  max-width: 70ch;
+}

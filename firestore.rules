@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public catalogue — readable by everyone, writable only via the
+    // server (Admin SDK bypasses rules). Admin writes go through /api/*.
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /faqs/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /reviews/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /settings/site {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Orders contain customer PII — server-side only, always.
+    match /orders/{id} {
+      allow read, write: if false;
+    }
+    match /meta/{id} {
+      allow read, write: if false;
+    }
+  }
+}

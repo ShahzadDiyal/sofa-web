@@ -1,0 +1,32 @@
+# Sofora
+
+> Sofas worth coming home to. Handcrafted sofas delivered across the UK — pay on delivery, only after you inspect your sofa at the door.
+
+Sofora is a UK sofa retailer selling exclusively online. The entire business model is cash on delivery (COD): customers order with their contact details only — no card details, no online payment. Sofora confirms each order by phone or text, delivers with a two-person team to the customer's room of choice, and the customer pays the driver (cash, card machine, or bank transfer) only after inspecting the sofa. If the sofa isn't right at the door, the customer can refuse delivery and pays nothing.
+
+## Key facts
+
+- Business: Sofora — online-only sofa store serving the United Kingdom.
+- Products: 3 seater sofas, corner sofas, 3+2 sets, armchairs, recliners, sofa beds. Solid hardwood frames; 5-year frame guarantee on many ranges; easy-clean family fabrics (weave, velvet, bouclé, jumbo cord).
+- Pricing: GBP. Example range: armchairs from £329, 3 seater sofas from £499, corner sofas from £1,149.
+- Delivery: free UK delivery on orders over £500 (otherwise £29); two-person delivery to room of choice; delivery slot agreed by phone before dispatch; typical lead time 7–14 days.
+- Payment: nothing is paid online. Payment is collected on delivery by the driver: cash, card machine, or bank transfer.
+- Returns/refusal: inspect at the door before paying; refuse delivery with no charge if not satisfied.
+
+## Site map
+
+- Home: /
+- All sofas (filterable by style, with search and sort): /sofas
+- Product pages: /sofas/[slug] (e.g. /sofas/oslo-3-seater-sofa)
+- Checkout (details only, no payment): /checkout
+- Wishlist: /wishlist
+- Delivery policy: /delivery
+- Returns: /returns
+- Contact: /contact
+- Privacy: /privacy
+
+## Data for AI consumers
+
+- Structured data: Organization/FurnitureStore, WebSite with SearchAction, Product with Offer (GBP, InStock), BreadcrumbList, FAQPage, HowTo (pay-on-delivery steps), and ItemList on collection pages.
+- Full catalogue and policies: /llms-full.txt
+- Machine-readable sitemap: /sitemap.xml
