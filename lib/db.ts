@@ -223,6 +223,65 @@ export async function listCategories(): Promise<Category[]> {
   return s.categories;
 }
 
+export async function saveCategory(input: Partial<Category> & { name: string }): Promise<Category> {
+  const f = db();
+  if (f) {
+    const col = f.collection("categories");
+    if (input.id) {
+      const ref = col.doc(input.id);
+      const existing = (await ref.get()).data() as Category | undefined;
+      const merged = { ...(existing as Category), ...input } as Category;
+      await ref.set(merged, { merge: true });
+      return merged;
+    }
+    const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const all = await listCategories();
+    const taken = new Set(all.map((c) => c.slug));
+    let slug = slugBase;
+    let i = 2;
+    while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+    const category: Category = {
+      id: `cat-${slug}`,
+      slug,
+      type: "three",
+      fabric: "#D8CBB4",
+      bg: "#EFE8DC",
+      ...input,
+      slug,
+    } as Category;
+    await col.doc(category.id).set(category);
+    return category;
+  }
+  return mutateLocal((s) => {
+    if (input.id) {
+      const idx = s.categories.findIndex((c) => c.id === input.id);
+      if (idx >= 0) {
+        s.categories[idx] = { ...s.categories[idx], ...input } as Category;
+        return s.categories[idx];
+      }
+    }
+    if (input.slug && s.categories.some((c) => c.slug === input.slug)) {
+      return s.categories.find((c) => c.slug === input.slug)!;
+    }
+    const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const taken = new Set(s.categories.map((c) => c.slug));
+    let slug = slugBase;
+    let i = 2;
+    while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+    const category: Category = {
+      id: `cat-${slug}`,
+      slug,
+      type: "three",
+      fabric: "#D8CBB4",
+      bg: "#EFE8DC",
+      ...input,
+      slug,
+    } as Category;
+    s.categories.push(category);
+    return category;
+  });
+}
+
 /* ---------- orders ---------- */
 
 export async function listOrders(): Promise<Order[]> {
