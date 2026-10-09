@@ -247,7 +247,6 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
       fabric: "#D8CBB4",
       bg: "#EFE8DC",
       ...input,
-      slug,
     } as Category;
     await col.doc(category.id).set(category);
     return category;
@@ -275,10 +274,20 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
       fabric: "#D8CBB4",
       bg: "#EFE8DC",
       ...input,
-      slug,
     } as Category;
     s.categories.push(category);
     return category;
+  });
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const f = db();
+  if (f) {
+    await f.collection("categories").doc(id).delete();
+    return;
+  }
+  await mutateLocal((s) => {
+    s.categories = s.categories.filter((c) => c.id !== id);
   });
 }
 

@@ -12,6 +12,7 @@ import {
   IconPhone,
   IconSettings,
   IconSofa,
+  IconTag,
   IconTruck,
 } from "@/components/Icons";
 import { api } from "./_ui";
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
   { href: "/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
   { href: "/admin/products", label: "Sofas", Icon: IconSofa },
+  { href: "/admin/categories", label: "Categories", Icon: IconTag },
   { href: "/admin/customers", label: "Customers", Icon: IconPhone },
   { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
   { href: "/admin/settings", label: "Settings", Icon: IconSettings },
