@@ -126,7 +126,13 @@ const db = () => adminDb();
    collections and a handful of builds can exhaust the Firestore free
    read quota (50k/day). With the cache, one build costs a few hundred
    reads instead of ~10k. Mutations invalidate it (see below). */
-const READ_CACHE_TTL_MS = 60_000;
+/* Catalog content (products, categories, FAQs, posts, reviews, settings) changes
+   rarely, and every admin mutation invalidates the cache immediately — so it
+   can be cached for 10 minutes. Orders stay on a short TTL so the admin panel
+   and order lookups always see fresh data. Note: the cache is per server
+   instance, so cross-instance staleness is bounded by these TTLs. */
+const READ_CACHE_TTL_MS = 600_000; // 10 minutes
+const ORDER_CACHE_TTL_MS = 60_000; // 1 minute
 const readCache = new Map<string, { at: number; value: unknown }>();
 
 type FirestoreDb = NonNullable<ReturnType<typeof adminDb>>;
@@ -147,10 +153,11 @@ const lastGood = new Map<string, unknown>();
 async function resilientRead<T>(
   key: string,
   fromFirestore: (f: FirestoreDb) => Promise<T>,
-  fromLocal: () => Promise<T>
+  fromLocal: () => Promise<T>,
+  ttlMs: number = READ_CACHE_TTL_MS
 ): Promise<T> {
   const hit = readCache.get(key);
-  if (hit && Date.now() - hit.at < READ_CACHE_TTL_MS) return structuredClone(hit.value) as T;
+  if (hit && Date.now() - hit.at < ttlMs) return structuredClone(hit.value) as T;
   const f = db();
   if (f) {
     try {
@@ -432,7 +439,8 @@ export async function listOrders(): Promise<Order[]> {
     async () => {
       const s = await loadLocal();
       return [...s.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    }
+    },
+    ORDER_CACHE_TTL_MS
   );
 }
 
@@ -451,7 +459,8 @@ export async function getOrder(idOrNumber: string): Promise<Order | null> {
       return (
         s.orders.find((o) => o.id === idOrNumber || o.number === idOrNumber.toUpperCase()) ?? null
       );
-    }
+    },
+    ORDER_CACHE_TTL_MS
   );
 }
 
@@ -479,6 +488,7 @@ export async function createOrder(input: {
       const order: Order = {
         id,
         number: `SOF-${seq}`,
+        publicToken: crypto.randomUUID(),
         items: input.items,
         subtotal,
         deliveryFee,
@@ -498,6 +508,7 @@ export async function createOrder(input: {
       const order: Order = {
         id: `ord-${Date.now()}`,
         number: `SOF-${s.orderSeq++}`,
+        publicToken: crypto.randomUUID(),
         items: input.items,
         subtotal,
         deliveryFee,
