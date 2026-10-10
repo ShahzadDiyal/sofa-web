@@ -183,40 +183,10 @@ export default function ProductClient({
           </button>
 
           <div className="border-[1.5px] border-line rounded-[18px] p-[18px_20px] flex flex-col gap-3 bg-white">
-            <div className="flex items-center gap-2.5 font-semibold">
-              <IconTruck size={20} className="text-forest" /> Check delivery to your postcode
-            </div>
-            <form
-              className="flex gap-2.5 flex-wrap"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setPcState(UK_POSTCODE.test(postcode.trim()) ? "ok" : "bad");
-              }}
-            >
-              <input
-                value={postcode}
-                onChange={(e) => { setPostcode(e.target.value); setPcState("idle"); }}
-                aria-label="UK postcode"
-                placeholder="e.g. M30 7SA"
-                className="field-input flex-1 basis-[160px] bg-cream!"
-              />
-              <button type="submit" className="btn btn-outline py-2.5! px-5!">Check</button>
-            </form>
-            {pcState === "ok" && (
-              <p className="text-sm text-[#2F7D4F] font-medium">
-                Good news — we deliver to {postcode.trim().toUpperCase()}. {settings.deliveryTimeText}
-              </p>
-            )}
-            {pcState === "bad" && (
-              <p className="text-sm text-[#B3402F] font-medium">
-                That doesn&apos;t look like a UK postcode — please check and try again.
-              </p>
-            )}
-            {pcState === "idle" && (
-              <p className="text-[13px] text-muted">
+           <p className="text-[13px] text-muted">
                 {settings.deliveryTimeText}
               </p>
-            )}
+             
           </div>
 
           <div className="flex flex-col">
