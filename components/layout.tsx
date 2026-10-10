@@ -378,13 +378,23 @@ export function Header() {
                             className="flex items-center gap-3 py-2 text-[16px]"
                           >
                             <span className="w-11 rounded-[12px] overflow-hidden flex-none bg-cream">
-                              <SofaIllustration
-                                type={c.type}
-                                fabric={c.fabric}
-                                bg={c.bg}
-                                title={c.name}
-                                className="w-full aspect-square"
-                              />
+                              {c.imageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={c.imageUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-full aspect-square object-cover"
+                                />
+                              ) : (
+                                <SofaIllustration
+                                  type={c.type}
+                                  fabric={c.fabric}
+                                  bg={c.bg}
+                                  title={c.name}
+                                  className="w-full aspect-square"
+                                />
+                              )}
                             </span>
                             <span>{c.name}</span>
                             <span className="ml-auto text-[13px] text-muted tabular-nums">
@@ -449,6 +459,7 @@ export function Footer({
           <Link href="/#how" className="hover:opacity-70">How COD works</Link>
           <Link href="/delivery" className="hover:opacity-70">Delivery policy</Link>
           <Link href="/returns" className="hover:opacity-70">Returns</Link>
+          <Link href="/reviews" className="hover:opacity-70">Customer reviews</Link>
           <Link href="/blog" className="hover:opacity-70">Blog</Link>
           <Link href="/contact" className="hover:opacity-70">Contact</Link>
         </nav>
