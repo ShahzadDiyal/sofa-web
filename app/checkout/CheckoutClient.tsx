@@ -82,7 +82,9 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong placing your order.");
       clearBasket();
-      router.push(`/order-confirmed?order=${encodeURIComponent(data.order.number)}`);
+      router.push(
+        `/order-confirmed?order=${encodeURIComponent(data.order.number)}&t=${encodeURIComponent(data.order.publicToken ?? "")}`
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong placing your order.");
       setPlacing(false);

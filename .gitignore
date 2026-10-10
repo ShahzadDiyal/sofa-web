@@ -6,3 +6,6 @@ out/
 data/store.json
 *.log
 .DS_Store
+
+# never commit real secrets
+vercel-import.env

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createOrder, listOrders } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
 
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 export async function GET() {
+  // Full order list (names, phones, addresses) — admin only.
+  const denied = await requireAdmin();
+  if (denied) return denied;
   const orders = await listOrders();
   return NextResponse.json({ orders });
 }

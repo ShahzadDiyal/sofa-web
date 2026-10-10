@@ -22,8 +22,9 @@ export default function OrderConfirmedClient() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!number) { setFailed(true); return; }
-    fetch(`/api/orders/${encodeURIComponent(number)}`)
+    const token = params.get("t");
+    if (!number || !token) { setFailed(true); return; }
+    fetch(`/api/orders/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setOrder(d.order))
       .catch(() => setFailed(true));
