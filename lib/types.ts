@@ -190,6 +190,21 @@ export const QUERY_STATUS_LABELS: Record<QueryStatus, string> = {
   replied: "Replied",
 };
 
+/* Per-product customer review (shown on product pages + /reviews). */
+export interface ProductReview {
+  id: string;
+  productId: string;
+  productSlug: string;
+  productName: string;
+  author: string;
+  location?: string;
+  rating: number; // 1–5
+  title?: string;
+  body: string;
+  verified?: boolean;
+  createdAt: string; // ISO
+}
+
 /* Discount coupon (Admin → Coupons). */
 export interface Coupon {
   id: string;

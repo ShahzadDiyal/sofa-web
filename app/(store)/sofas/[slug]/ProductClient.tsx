@@ -7,7 +7,7 @@ import type { Color, Faq, Product, SiteSettings } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import SofaIllustration from "@/components/SofaIllustration";
-import { ProductCard } from "@/components/storefront";
+import { ProductCard, Stars } from "@/components/storefront";
 import { IconCash, IconCheck, IconMinus, IconPlus, IconTruck } from "@/components/Icons";
 
 /* A purchasable colourway: the main fabric plus any "Also available" colours.
@@ -46,11 +46,13 @@ export default function ProductClient({
   product,
   related,
   settings,
+  reviewStats,
 }: {
   product: Product;
   related: Product[];
   faqs: Faq[];
   settings: SiteSettings;
+  reviewStats: { count: number; avg: number };
 }) {
   const router = useRouter();
   const { addToBasket } = useStore();
@@ -151,12 +153,19 @@ export default function ProductClient({
               </span>
             )}
             <h1 className="text-[clamp(34px,4vw,48px)] leading-tight">{product.name}</h1>
-            <div className="flex items-center gap-2.5 text-sm text-body">
-              <span className="text-terra tracking-[2px]" aria-label={`Rated ${product.rating ?? 5} out of 5`}>
-                ★★★★★
-              </span>
-              <span>{product.reviewCount ?? 0} reviews</span>
-            </div>
+            {reviewStats.count > 0 ? (
+              <a href="/reviews" className="flex items-center gap-2.5 text-sm text-body hover:text-ink w-fit">
+                <Stars rating={reviewStats.avg} />
+                <span className="underline underline-offset-2">
+                  {reviewStats.avg.toFixed(1)} · {reviewStats.count} review{reviewStats.count === 1 ? "" : "s"}
+                </span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-2.5 text-sm text-body">
+                <Stars rating={5} />
+                <span>{product.reviewCount ?? 0} reviews</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-baseline gap-3.5">

@@ -28,6 +28,7 @@ import type {
   OrderStatus,
   Post,
   Product,
+  ProductReview,
   Review,
   SiteSettings,
 } from "./types";
@@ -41,6 +42,7 @@ interface LocalStore {
   queries: ContactQuery[];
   coupons: Coupon[];
   flashSales: FlashSale[];
+  productReviews: ProductReview[];
   faqs: Faq[];
   reviews: Review[];
   orders: Order[];
@@ -86,6 +88,7 @@ function freshLocal(): LocalStore {
     queries: [],
     coupons: [],
     flashSales: [],
+    productReviews: [],
     faqs: structuredClone(seedFaqs),
     reviews: structuredClone(seedReviews),
     orders: [],
@@ -1174,6 +1177,123 @@ export async function deleteFlashSale(id: string): Promise<void> {
     }
     await mutateLocal((s) => {
       s.flashSales = s.flashSales.filter((x) => x.id !== id);
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- product reviews ---------- */
+
+export async function listProductReviews(productId?: string): Promise<ProductReview[]> {
+  return resilientRead(
+    `productReviews:${productId ?? "all"}`,
+    async (f) => {
+      let q = f.collection("productReviews").orderBy("createdAt", "desc");
+      const snap = productId
+        ? await q.where("productId", "==", productId).get()
+        : await q.get();
+      return snap.docs.map((d) => d.data() as ProductReview);
+    },
+    async () => {
+      const s = await loadLocal();
+      const list = productId ? s.productReviews.filter((r) => r.productId === productId) : [...s.productReviews];
+      return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  );
+}
+
+export interface ReviewStats {
+  count: number;
+  avg: number; // 0 when no reviews
+}
+
+/** Review counts + average rating for the given products (batch). */
+export async function getProductReviewStats(productIds: string[]): Promise<Map<string, ReviewStats>> {
+  const out = new Map<string, ReviewStats>();
+  if (productIds.length === 0) return out;
+  const f = db();
+  if (f) {
+    // Firestore has no server-side aggregation here; one batched read per 10 ids.
+    for (let i = 0; i < productIds.length; i += 10) {
+      const chunk = productIds.slice(i, i + 10);
+      const snap = await f.collection("productReviews").where("productId", "in", chunk).get();
+      const acc = new Map<string, { n: number; sum: number }>();
+      for (const d of snap.docs) {
+        const r = d.data() as ProductReview;
+        const a = acc.get(r.productId) ?? { n: 0, sum: 0 };
+        a.n += 1;
+        a.sum += r.rating;
+        acc.set(r.productId, a);
+      }
+      for (const [pid, a] of acc) out.set(pid, { count: a.n, avg: a.sum / a.n });
+    }
+    return out;
+  }
+  const s = await loadLocal();
+  const acc = new Map<string, { n: number; sum: number }>();
+  for (const r of s.productReviews) {
+    if (!productIds.includes(r.productId)) continue;
+    const a = acc.get(r.productId) ?? { n: 0, sum: 0 };
+    a.n += 1;
+    a.sum += r.rating;
+    acc.set(r.productId, a);
+  }
+  for (const [pid, a] of acc) out.set(pid, { count: a.n, avg: a.sum / a.n });
+  return out;
+}
+
+export async function createProductReview(input: {
+  productId: string;
+  productSlug: string;
+  productName: string;
+  author: string;
+  rating: number;
+  title?: string;
+  body: string;
+  location?: string;
+  verified?: boolean;
+  createdAt?: string;
+}): Promise<ProductReview> {
+  try {
+    const nowIso = input.createdAt ?? new Date().toISOString();
+    const review: ProductReview = {
+      id: `prv-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+      productId: input.productId,
+      productSlug: input.productSlug,
+      productName: input.productName,
+      author: input.author.trim(),
+      location: input.location?.trim() || undefined,
+      rating: Math.max(1, Math.min(5, Math.round(input.rating))),
+      title: input.title?.trim() || undefined,
+      body: input.body.trim(),
+      verified: input.verified,
+      createdAt: nowIso,
+    };
+    stripUndefined(review);
+    const f = db();
+    if (f) {
+      await f.collection("productReviews").doc(review.id).set(review);
+      return review;
+    }
+    return mutateLocal((s) => {
+      s.productReviews.push(review);
+      return review;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteProductReview(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("productReviews").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.productReviews = s.productReviews.filter((r) => r.id !== id);
     });
   } finally {
     invalidateReadCache();

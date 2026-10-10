@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getSettings, listCategories, listFaqs, listProducts } from "@/lib/db";
+import { getProductReviewStats, getSettings, listCategories, listFaqs, listProducts } from "@/lib/db";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
 import { Breadcrumbs, JsonLd } from "@/components/storefront";
 import ProductClient from "./ProductClient";
@@ -72,6 +72,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     .filter((p) => p.id !== product.id && p.inStock)
     .sort((a, b) => Number(b.featured ?? false) - Number(a.featured ?? false))
     .slice(0, 4);
+  const reviewStats = await getProductReviewStats([product.id]);
+  const stats = reviewStats.get(product.id) ?? { count: 0, avg: 0 };
 
   return (
     <>
@@ -95,7 +97,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         />
       </div>
 
-      <ProductClient product={product} related={related} faqs={faqs} settings={settings} />
+      <ProductClient product={product} related={related} faqs={faqs} settings={settings} reviewStats={stats} />
     </>
   );
 }
