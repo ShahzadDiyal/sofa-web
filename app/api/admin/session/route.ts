@@ -1,53 +1,40 @@
 /* Admin session endpoints.
-   POST   { idToken } -> verifies the Firebase ID token, checks the
-                       ADMIN_EMAILS allow-list, sets the httpOnly
-                       `sofora_admin` session cookie (5 days).
-   GET                -> 200 { email } when signed in, else 401.
-   DELETE             -> clears the session cookie (sign out). */
+   POST   { email, password } -> checks the Firestore `users` collection
+                       (account must exist with role "admin"), sets the
+                       httpOnly `sofora_admin` session cookie (5 days).
+   GET                    -> 200 { email } when signed in, else 401.
+   DELETE                 -> clears the session cookie (sign out). */
 
 import { NextResponse } from "next/server";
-import admin from "firebase-admin";
-import { ADMIN_COOKIE, adminAllowlist, getAdminEmail } from "@/lib/admin-auth";
-import { isFirebaseConfigured } from "@/lib/firebase-admin";
+import { ADMIN_COOKIE, getAdminEmail, makeSessionValue } from "@/lib/admin-auth";
+import { verifyAdminCredentials } from "@/lib/admin-users";
 
-const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+const FIVE_DAYS_S = 5 * 24 * 60 * 60;
 
 export async function POST(req: Request) {
-  const { idToken } = await req.json().catch(() => ({}));
-  if (!idToken || typeof idToken !== "string") {
-    return NextResponse.json({ error: "Missing sign-in token." }, { status: 400 });
+  const { email, password } = await req.json().catch(() => ({}));
+  if (!email || typeof email !== "string" || !password || typeof password !== "string") {
+    return NextResponse.json({ error: "Enter your email and password." }, { status: 400 });
   }
-  if (!isFirebaseConfigured()) {
+  let user;
+  try {
+    user = await verifyAdminCredentials(email, password);
+  } catch {
     return NextResponse.json({ error: "Server Firebase is not configured." }, { status: 500 });
   }
-  let decoded: admin.auth.DecodedIdToken;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken);
-  } catch {
-    return NextResponse.json({ error: "Invalid sign-in token." }, { status: 401 });
-  }
-  const email = (decoded.email ?? "").toLowerCase();
-  const list = adminAllowlist();
-  if (list.length === 0) {
+  if (!user) {
     return NextResponse.json(
-      { error: "No admin emails configured on the server (ADMIN_EMAILS)." },
-      { status: 403 }
+      { error: "Wrong email or password — or this account is not an admin." },
+      { status: 401 }
     );
   }
-  if (!email || !list.includes(email)) {
-    return NextResponse.json(
-      { error: "This account is not on the admin allow-list." },
-      { status: 403 }
-    );
-  }
-  const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn: FIVE_DAYS_MS });
-  const res = NextResponse.json({ ok: true, email });
-  res.cookies.set(ADMIN_COOKIE, sessionCookie, {
+  const res = NextResponse.json({ ok: true, email: user.email });
+  res.cookies.set(ADMIN_COOKIE, makeSessionValue(user.email), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: FIVE_DAYS_MS / 1000,
+    maxAge: FIVE_DAYS_S,
   });
   return res;
 }

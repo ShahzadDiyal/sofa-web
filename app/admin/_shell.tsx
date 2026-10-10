@@ -17,6 +17,7 @@ import {
   IconPalette,
   IconPhone,
   IconSettings,
+  IconShield,
   IconSofa,
   IconTag,
   IconTicket,
@@ -37,6 +38,7 @@ const NAV = [
   { href: "/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
   { href: "/admin/posts", label: "Blog", Icon: IconArticle },
   { href: "/admin/customers", label: "Customers", Icon: IconPhone },
+  { href: "/admin/users", label: "Users", Icon: IconShield },
   { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
   { href: "/admin/settings", label: "Settings", Icon: IconSettings },
 ];

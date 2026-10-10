@@ -1,10 +1,15 @@
-/* Admin gate for API routes and admin UI.
+/* Admin gate for API routes and the admin UI.
    ------------------------------------------------------------------
+   Sign-in is a simple email + password form at /admin/login. POST
+   /api/admin/session checks the credentials against the Firestore
+   `users` collection (see lib/admin-users.ts) — the account must exist
+   there with role "admin". On success the server sets the httpOnly
+   `sofora_admin` cookie: base64url(email) + "." + HMAC-SHA256 signature,
+   signed with ADMIN_SESSION_SECRET (or a random per-boot secret in dev).
+
    Every admin-only API route must call `requireAdmin()` at the top of its
-   handler. The gate verifies the `sofora_admin` session cookie (set by
-   POST /api/admin/session after a Firebase Auth sign-in) against the
-   server-side Firebase Admin SDK, then checks the email against the
-   ADMIN_EMAILS allow-list (comma-separated env var).
+   handler. getAdminEmail() re-checks the Firestore record on every call,
+   so demoting or deleting an account revokes its sessions immediately.
 
    Intentionally PUBLIC (storefront needs them):
      GET  /api/products          (header mega-menu, wishlist)
@@ -12,48 +17,77 @@
      POST /api/orders            (checkout)
      GET  /api/orders/[id]       (order-confirmation page — PII redacted
                                  for non-admin callers; see its route)
-   Everything else under /api requires a signed-in allow-listed admin.
-
-   Local dev (no Firebase Admin credentials): the gate is permissive ONLY
-   when ADMIN_EMAILS is unset; if ADMIN_EMAILS is set without credentials
-   the gate denies everything (fail closed on misconfiguration). */
+   Everything else under /api requires a signed-in admin. */
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import admin from "firebase-admin";
-import { isFirebaseConfigured } from "./firebase-admin";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { getAdminUser } from "./admin-users";
 
 export const ADMIN_COOKIE = "sofora_admin";
 
-/** Comma-separated allow-list of admin emails (lower-cased). */
-export function adminAllowlist(): string[] {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+let secret: Buffer | null = null;
+function sessionSecret(): Buffer {
+  if (!secret) {
+    const env = process.env.ADMIN_SESSION_SECRET;
+    if (env) {
+      secret = Buffer.from(env, "utf8");
+    } else {
+      secret = randomBytes(32);
+      console.warn(
+        "[admin-auth] ADMIN_SESSION_SECRET is not set — using a random per-boot secret (sessions expire on restart)."
+      );
+    }
+  }
+  return secret;
 }
 
-/** Email of the signed-in admin, or null when not signed in / not allowed. */
+function b64urlEncode(s: string): string {
+  return Buffer.from(s, "utf8").toString("base64url");
+}
+function b64urlDecode(s: string): string | null {
+  try {
+    return Buffer.from(s, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function sign(email: string): string {
+  return createHmac("sha256", sessionSecret()).update(email).digest("hex");
+}
+
+/** Build the signed cookie value for an admin email. */
+export function makeSessionValue(email: string): string {
+  const e = email.trim().toLowerCase();
+  return `${b64urlEncode(e)}.${sign(e)}`;
+}
+
+/** Verify the cookie value and return the email, or null. */
+function verifySessionValue(value: string): string | null {
+  const dot = value.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const email = b64urlDecode(value.slice(0, dot));
+  if (!email || !email.includes("@")) return null;
+  const expected = sign(email);
+  const actual = value.slice(dot + 1);
+  const a = Buffer.from(actual, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  return email;
+}
+
+/** Email of the signed-in admin, or null when not signed in / not an admin. */
 export async function getAdminEmail(): Promise<string | null> {
   const jar = await cookies();
   const session = jar.get(ADMIN_COOKIE)?.value;
   if (!session) return null;
-
-  if (!isFirebaseConfigured()) {
-    // Local dev (seed store, localhost server): nothing sensitive exists here.
-    if (adminAllowlist().length > 0) return null; // misconfigured: fail closed
-    console.warn("[admin-auth] Firebase Admin not configured — admin gate is permissive (local dev only)");
-    return "local-dev";
-  }
-
+  const email = verifySessionValue(session);
+  if (!email) return null;
   try {
-    const decoded = await admin.auth().verifySessionCookie(session, true);
-    const email = (decoded.email ?? "").toLowerCase();
-    if (!email) return null;
-    const list = adminAllowlist();
-    if (list.length === 0) return null; // no allow-list configured: fail closed
-    if (!list.includes(email)) return null;
-    return email;
+    const user = await getAdminUser(email);
+    if (!user || user.role !== "admin") return null;
+    return user.email;
   } catch {
     return null;
   }

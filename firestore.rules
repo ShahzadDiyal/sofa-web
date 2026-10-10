@@ -33,6 +33,11 @@ service cloud.firestore {
     match /orders/{id} {
       allow read, write: if false;
     }
+    // Login credentials — server-side only, always. The Admin SDK bypasses
+    // these rules; the admin panel talks to `users` through API routes.
+    match /users/{id} {
+      allow read, write: if false;
+    }
     match /meta/{id} {
       allow read, write: if false;
     }
