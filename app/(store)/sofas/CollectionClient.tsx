@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { Category, Product } from "@/lib/types";
+import type { Category, Color, Product } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { Breadcrumbs, JsonLd, ProductCard } from "@/components/storefront";
 import { itemListJsonLd } from "@/lib/seo";
@@ -12,7 +12,8 @@ import { IconCash, IconShield, IconTruck } from "@/components/Icons";
 const SEATS = [1, 2, 3, 4];
 const FABRICS = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
 const FEATURES = ["Sofa bed", "Reclining", "Storage"];
-const COLOURS: { name: string; hex: string }[] = [
+/* Fallback palette if the managed colour library can't be reached. */
+const FALLBACK_COLOURS: { name: string; hex: string }[] = [
   { name: "Oat", hex: "#D8CBB4" },
   { name: "Sage", hex: "#5E7A6B" },
   { name: "Charcoal", hex: "#3F4443" },
@@ -66,6 +67,20 @@ export default function CollectionClient({
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState<Sort>("best");
+  /* Colour filter swatches come from the managed library (Admin → Colours). */
+  const [libColors, setLibColors] = useState<Color[] | null>(null);
+  useEffect(() => {
+    fetch("/api/colors")
+      .then((r) => r.json())
+      .then((d) => setLibColors(d.colors ?? []))
+      .catch(() => setLibColors([]));
+  }, []);
+  const filterColours: { name: string; hex?: string; imageUrl?: string }[] =
+    libColors === null
+      ? FALLBACK_COLOURS
+      : libColors.length
+        ? libColors
+        : FALLBACK_COLOURS;
 
   const toggle = <T,>(arr: T[], v: T, set: (x: T[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -227,20 +242,31 @@ export default function CollectionClient({
           <div className="border-t border-line py-4">
             <span className="label-caps">Colour</span>
             <div className="flex gap-2.5 flex-wrap mt-3">
-              {COLOURS.map((c) => (
+              {filterColours.map((c) => (
                 <button
                   key={c.name}
                   aria-label={c.name}
                   aria-pressed={colours.includes(c.name)}
                   title={c.name}
                   onClick={() => toggle(colours, c.name, setColours)}
-                  className="w-[34px] h-[34px] rounded-full p-0 cursor-pointer border-2 border-white transition-transform hover:scale-110"
-                  style={{
-                    background: c.hex,
-                    outline: `1.5px solid ${colours.includes(c.name) ? "#1F3A32" : "#DDD3C4"}`,
-                    outlineOffset: "2px",
-                  }}
-                />
+                  className="w-[34px] h-[34px] rounded-full p-0 cursor-pointer border-2 border-white transition-transform hover:scale-110 overflow-hidden"
+                  style={
+                    c.imageUrl
+                      ? { outline: `1.5px solid ${colours.includes(c.name) ? "#1F3A32" : "#DDD3C4"}`, outlineOffset: "2px" }
+                      : {
+                          background: c.hex || "#DDD3C4",
+                          outline: `1.5px solid ${colours.includes(c.name) ? "#1F3A32" : "#DDD3C4"}`,
+                          outlineOffset: "2px",
+                        }
+                  }
+                >
+                  {c.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="sr-only">{c.name}</span>
+                  )}
+                </button>
               ))}
             </div>
           </div>

@@ -18,6 +18,7 @@ export interface Product {
   accent: string; // illustration accent colour
   tag?: string; // badge, e.g. "Save £250"
   imageUrl?: string; // optional product photography; falls back to the sofa illustration
+  colorImages?: Record<string, string>; // per-colourway photos, keyed by colour name
   sku?: string;
   seats?: number; // 1, 2, 3, 4 (4 = 4+ seater)
   fabricType?: string; // "Easy-clean weave" | "Velvet" | "Jumbo cord" | "Bouclé"
@@ -41,6 +42,18 @@ export interface Category {
   bg: string;
   blurb?: string;
   menu?: string; // navbar menu group label, e.g. "Sofas" — categories without one don't appear in the nav
+  imageUrl?: string; // optional category photo (device upload → Cloudinary); falls back to the illustration
+}
+
+/* Managed colour library (Admin → Colors). A colour is either a hex swatch,
+   an uploaded swatch image, or both. Products reference colours by name. */
+export interface Color {
+  id: string;
+  name: string;
+  hex?: string; // e.g. "#D8CBB4"
+  imageUrl?: string; // optional swatch photo (device upload → Cloudinary)
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BasketItem {
@@ -65,6 +78,11 @@ export type OrderStatus =
 export interface Order {
   id: string;
   number: string; // human-friendly, e.g. "SOF-1024"
+  /** Unguessable per-order token. The public order-confirmation page must
+      present it (?t=...) to read the order — order numbers are sequential
+      and must not be enumerable. Never expose to anyone except the buyer
+      at checkout time (and the admin). */
+  publicToken: string;
   items: BasketItem[];
   subtotal: number;
   deliveryFee: number;

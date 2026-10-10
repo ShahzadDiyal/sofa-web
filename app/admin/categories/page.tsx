@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTag, IconTrash, IconX } from "@/components/Icons";
 import SofaIllustration from "@/components/SofaIllustration";
 import type { Category, Product, SofaType } from "@/lib/types";
+import ImageUploadField from "../_image-upload";
 import {
   Card,
   EmptyState,
@@ -37,6 +38,7 @@ type FormState = {
   type: SofaType;
   fabric: string;
   bg: string;
+  imageUrl: string;
 };
 
 const emptyForm: FormState = {
@@ -47,6 +49,7 @@ const emptyForm: FormState = {
   type: "three",
   fabric: "#D8CBB4",
   bg: "#EFE8DC",
+  imageUrl: "",
 };
 
 export default function CategoriesPage() {
@@ -91,7 +94,7 @@ export default function CategoriesPage() {
     setSlugTouched(false);
   };
   const openEdit = (c: Category) => {
-    setForm({ id: c.id, name: c.name, slug: c.slug, blurb: c.blurb ?? "", menu: c.menu ?? "", type: c.type, fabric: c.fabric, bg: c.bg });
+    setForm({ id: c.id, name: c.name, slug: c.slug, blurb: c.blurb ?? "", menu: c.menu ?? "", type: c.type, fabric: c.fabric, bg: c.bg, imageUrl: c.imageUrl ?? "" });
     setSlugTouched(true);
   };
 
@@ -99,7 +102,7 @@ export default function CategoriesPage() {
     if (!form || !form.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { ...form, slug: form.slug || slugify(form.name), blurb: form.blurb || undefined, menu: form.menu.trim() || undefined };
+      const payload = { ...form, slug: form.slug || slugify(form.name), blurb: form.blurb || undefined, menu: form.menu.trim() || undefined, imageUrl: form.imageUrl.trim() || (form.id ? null : undefined) };
       if (form.id) {
         await api(`/api/categories/${form.id}`, "PUT", payload);
       } else {
@@ -178,7 +181,12 @@ export default function CategoriesPage() {
                     <td className={tdClass}>
                       <div className="flex items-center gap-3.5">
                         <div className="w-[72px] rounded-[12px] overflow-hidden flex-none">
-                          <SofaIllustration type={c.type} fabric={c.fabric} bg={c.bg} className="w-full aspect-square" />
+                          {c.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.imageUrl} alt={c.name} className="w-full aspect-square object-cover" />
+                          ) : (
+                            <SofaIllustration type={c.type} fabric={c.fabric} bg={c.bg} className="w-full aspect-square" />
+                          )}
                         </div>
                         <div>
                           <div className="font-semibold">{c.name}</div>
@@ -220,10 +228,23 @@ export default function CategoriesPage() {
 
             <div className="flex gap-5 items-start flex-wrap">
               <div className="w-[140px] rounded-[18px] overflow-hidden flex-none border border-line">
-                <SofaIllustration type={form.type} fabric={form.fabric} bg={form.bg} className="w-full aspect-square" />
+                {form.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.imageUrl} alt={form.name || "Category photo"} className="w-full aspect-square object-cover" />
+                ) : (
+                  <SofaIllustration type={form.type} fabric={form.fabric} bg={form.bg} className="w-full aspect-square" />
+                )}
               </div>
-              <p className="text-sm text-muted flex-1 basis-[200px]">Live preview — this is how the category tile looks in “Shop by style”.</p>
+              <p className="text-sm text-muted flex-1 basis-[200px]">Live preview — {form.imageUrl ? "your uploaded photo" : "the illustration"} is how the category tile looks in “Shop by style”.</p>
             </div>
+
+            <ImageUploadField
+              label="Category photo (optional)"
+              hint="Upload from your device — it goes to Cloudinary automatically. Used for the “Shop by style” tile instead of the illustration."
+              folder="categories"
+              value={form.imageUrl}
+              onChange={(url) => setForm((f) => (f ? { ...f, imageUrl: url } : f))}
+            />
 
             <div>
               <label className={labelClass} htmlFor="cat-name">Name</label>

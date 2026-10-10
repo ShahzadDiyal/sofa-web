@@ -1,22 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Faq, Product, SiteSettings } from "@/lib/types";
+import type { Color, Faq, Product, SiteSettings } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import SofaIllustration from "@/components/SofaIllustration";
 import { ProductCard } from "@/components/storefront";
 import { IconCash, IconCheck, IconMinus, IconPlus, IconTruck } from "@/components/Icons";
 
-const FABRICS = [
-  { name: "Oat weave", hex: "#D8CBB4", bg: "#EFE8DC", acc: "#B65A35" },
-  { name: "Sage weave", hex: "#5E7A6B", bg: "#DCE5DA", acc: "#E9D9B8" },
-  { name: "Charcoal weave", hex: "#3F4443", bg: "#E8DFD2", acc: "#C27B5A" },
-  { name: "Terracotta weave", hex: "#C27B5A", bg: "#F4E1D6", acc: "#F6F1EA" },
-  { name: "Navy weave", hex: "#2E3F5C", bg: "#DCE8F3", acc: "#D9B8AE" },
-];
+/* A purchasable colourway: the main fabric plus any "Also available" colours.
+   Each colourway may carry its own photo (admin upload); otherwise the main
+   product photo is shown, then the illustration. */
+interface Colorway {
+  name: string;
+  hex: string;
+  imageUrl?: string; // photo of this colourway (admin upload)
+  swatchImage?: string; // library swatch image for the selector button
+}
+
+function baseColorways(product: Product): { name: string; hex?: string; imageUrl?: string }[] {
+  const out: { name: string; hex?: string; imageUrl?: string }[] = [
+    {
+      name: product.fabricName || product.colourName || "Main",
+      hex: product.fabric,
+      imageUrl: product.imageUrl,
+    },
+  ];
+  for (const line of product.details ?? []) {
+    const m = /^Also available:\s*(.+?)\s*\(.+\)$/.exec(line);
+    if (m && !out.some((c) => c.name === m[1])) {
+      out.push({ name: m[1], imageUrl: product.colorImages?.[m[1]] });
+    }
+  }
+  // Main colourway also picks up its per-colour photo when present.
+  const mainPhoto = product.colorImages?.[out[0].name];
+  if (mainPhoto) out[0].imageUrl = mainPhoto;
+  return out;
+}
 
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
@@ -32,18 +54,38 @@ export default function ProductClient({
 }) {
   const router = useRouter();
   const { addToBasket } = useStore();
-  const [fabIdx, setFabIdx] = useState(() => {
-    const i = FABRICS.findIndex((f) => f.hex.toLowerCase() === product.fabric.toLowerCase());
-    return i >= 0 ? i : 0;
-  });
+  const [libColors, setLibColors] = useState<Color[]>([]);
+  useEffect(() => {
+    fetch("/api/colors")
+      .then((r) => r.json())
+      .then((d) => setLibColors(d.colors ?? []))
+      .catch(() => {});
+  }, []);
+  /* Real colourways, enriched with the managed colour library (hex + swatch). */
+  const colorways: Colorway[] = useMemo(() => {
+    const libByName = new Map(libColors.map((c) => [c.name, c]));
+    return baseColorways(product).map((c) => {
+      const lib = libByName.get(c.name);
+      return {
+        name: c.name,
+        hex: c.hex || lib?.hex || product.fabric,
+        imageUrl: c.imageUrl,
+        swatchImage: lib?.imageUrl,
+      };
+    });
+  }, [product, libColors]);
+  const [colorIdx, setColorIdx] = useState(0);
   const [qty, setQty] = useState(1);
   const [thumb, setThumb] = useState(0);
   const [postcode, setPostcode] = useState("");
   const [pcState, setPcState] = useState<"idle" | "ok" | "bad">("idle");
   const [added, setAdded] = useState(false);
 
-  const fab = FABRICS[fabIdx];
-  const thumbs = [fab.bg, "#E3EBE4", "#F4E1D6"];
+  const selected = colorways[Math.min(colorIdx, colorways.length - 1)];
+  /* Gallery photo for the selected colourway: its own photo, else the main
+     product photo, else the illustration. */
+  const galleryPhoto = selected.imageUrl || product.imageUrl;
+  const thumbs = [product.bg, "#E3EBE4", "#F4E1D6"];
 
   const orderNow = () => {
     addToBasket(product, qty);
@@ -61,25 +103,25 @@ export default function ProductClient({
         {/* Gallery */}
         <div className="flex-1 basis-[520px] min-w-0 flex flex-col gap-4">
           <div className="rounded-[28px] overflow-hidden">
-            {product.imageUrl ? (
+            {galleryPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={product.imageUrl}
-                alt={`${product.name} in ${fab.name}`}
+                src={galleryPhoto}
+                alt={`${product.name} in ${selected.name}`}
                 className="w-full aspect-[1/1.08] object-cover"
               />
             ) : (
               <SofaIllustration
                 type={product.type}
-                fabric={fab.hex}
+                fabric={selected.hex}
                 bg={thumbs[thumb]}
-                accent={fab.acc}
-                title={`${product.name} in ${fab.name}`}
+                accent={product.accent}
+                title={`${product.name} in ${selected.name}`}
                 className="w-full aspect-[1/1.08]"
               />
             )}
           </div>
-          {!product.imageUrl && (
+          {!galleryPhoto && (
           <div className="grid grid-cols-4 gap-3">
             {thumbs.map((bg, i) => (
               <button
@@ -90,7 +132,7 @@ export default function ProductClient({
                 className="rounded-[14px] overflow-hidden transition-shadow"
                 style={thumb === i ? { outline: "2px solid #1F3A32", outlineOffset: "-2px" } : undefined}
               >
-                <SofaIllustration type={product.type} fabric={fab.hex} bg={bg} accent={fab.acc} className="w-full aspect-square" />
+                <SofaIllustration type={product.type} fabric={selected.hex} bg={bg} accent={product.accent} className="w-full aspect-square" />
               </button>
             ))}
             <div className="rounded-[14px] bg-sand grid place-items-center aspect-square text-[13px] font-semibold text-muted text-center p-2">
@@ -140,22 +182,45 @@ export default function ProductClient({
 
           <div className="flex flex-col gap-3">
             <div className="flex justify-between text-[15px]">
-              <span className="font-semibold">Fabric</span>
-              <span className="text-body">{fab.name}</span>
+              <span className="font-semibold">Colour</span>
+              <span className="text-body">{selected.name}</span>
             </div>
-            <div className="flex gap-3 flex-wrap" role="group" aria-label="Choose fabric">
-              {FABRICS.map((f, i) => (
+            <div className="flex gap-3 flex-wrap" role="group" aria-label="Choose colour">
+              {colorways.map((c, i) => (
                 <button
-                  key={f.name}
-                  aria-label={f.name}
-                  aria-pressed={fabIdx === i}
-                  title={f.name}
-                  onClick={() => setFabIdx(i)}
-                  className="w-11 h-11 rounded-full p-0 cursor-pointer border-[3px] border-cream transition-transform hover:scale-105"
-                  style={{ background: f.hex, outline: `2px solid ${fabIdx === i ? "#1F3A32" : "#DDD3C4"}` }}
-                />
+                  key={c.name}
+                  aria-label={c.name}
+                  aria-pressed={colorIdx === i}
+                  title={c.name}
+                  onClick={() => setColorIdx(i)}
+                  className="w-11 h-11 rounded-full p-0 cursor-pointer border-[3px] border-cream transition-transform hover:scale-105 overflow-hidden"
+                  style={
+                    c.swatchImage
+                      ? undefined
+                      : { background: c.hex, outline: `2px solid ${colorIdx === i ? "#1F3A32" : "#DDD3C4"}` }
+                  }
+                >
+                  {c.swatchImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.swatchImage}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      style={{ outline: `2px solid ${colorIdx === i ? "#1F3A32" : "#DDD3C4"}`, outlineOffset: "-2px" }}
+                    />
+                  ) : (
+                    <span className="sr-only">{c.name}</span>
+                  )}
+                </button>
               ))}
             </div>
+            {colorways.length > 1 && (
+              <p className="text-[13px] text-muted">
+                {selected.imageUrl
+                  ? `Shown in ${selected.name}.`
+                  : `Photo for ${selected.name} coming soon — showing the main product photo.`}
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3.5 flex-wrap items-center">

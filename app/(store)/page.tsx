@@ -148,13 +148,23 @@ export default async function HomePage() {
               className="flex flex-col gap-3 group"
             >
               <div className="rounded-[18px] overflow-hidden">
-                <SofaIllustration
-                  type={c.type}
-                  fabric={c.fabric}
-                  bg={c.bg}
-                  title={`${c.name} illustration`}
-                  className="w-full aspect-[1/1.1] group-hover:scale-[1.03] transition-transform"
-                />
+                {c.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.imageUrl}
+                    alt={`${c.name}`}
+                    loading="lazy"
+                    className="w-full aspect-[1/1.1] object-cover group-hover:scale-[1.03] transition-transform"
+                  />
+                ) : (
+                  <SofaIllustration
+                    type={c.type}
+                    fabric={c.fabric}
+                    bg={c.bg}
+                    title={`${c.name} illustration`}
+                    className="w-full aspect-[1/1.1] group-hover:scale-[1.03] transition-transform"
+                  />
+                )}
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium text-[17px] capitalize">{c.name}</span>

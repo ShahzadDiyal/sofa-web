@@ -5,10 +5,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
 import SofaIllustration from "@/components/SofaIllustration";
-import type { Category, Product, SofaType } from "@/lib/types";
+import type { Category, Color, Product, SofaType } from "@/lib/types";
+import ImageUploadField from "../_image-upload";
 import {
   Card,
   CardTitle,
@@ -19,6 +20,7 @@ import {
   btnAdminPrimary,
   fieldClass,
   labelClass,
+  uploadImage,
 } from "../_ui";
 
 const TYPE_OPTIONS: { label: string; value: SofaType }[] = [
@@ -36,6 +38,7 @@ interface ColourRow {
   hex: string;
   name: string;
   sku: string;
+  photo?: string; // per-colourway photo (device upload → Cloudinary)
 }
 
 const DIM_LABELS = ["Width", "Depth", "Height", "Seat height", "Weight", "Boxes", "Min doorway"] as const;
@@ -93,6 +96,57 @@ function parseDetails(details: string[] | undefined): Parsed {
   return out;
 }
 
+/* Compact per-colourway photo uploader for the colours table. */
+function ColourPhotoButton({ photo, onChange }: { photo?: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      onChange(await uploadImage(file, "products"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-10 h-10 rounded-[10px] overflow-hidden bg-cream border border-line flex-none grid place-items-center">
+        {uploading ? (
+          <span className="w-full h-full skeleton" aria-label="Uploading…" />
+        ) : photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-muted text-[10px]">—</span>
+        )}
+      </span>
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className="text-[12px] font-semibold underline underline-offset-2 whitespace-nowrap disabled:opacity-50"
+        >
+          {uploading ? "Uploading…" : photo ? "Replace" : "Upload"}
+        </button>
+        {photo && !uploading && (
+          <button type="button" onClick={() => onChange("")} className="text-[12px] text-muted hover:text-ink whitespace-nowrap">
+            Remove
+          </button>
+        )}
+      </div>
+      {error && <span className="text-[11px] text-[#B3402F]">{error}</span>}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" aria-label="Upload colour photo" onChange={(e) => pick(e.target.files?.[0])} />
+    </div>
+  );
+}
+
 export default function SofaForm({ product }: { product?: Product }) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -109,11 +163,23 @@ export default function SofaForm({ product }: { product?: Product }) {
   const [fabricType, setFabricType] = useState(product?.fabricType ?? FABRIC_TYPES[0]);
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [category, setCategory] = useState(product?.category ?? "3-seater-sofas");
-  const [colours, setColours] = useState<ColourRow[]>(
-    product
-      ? [{ hex: product.fabric, name: product.fabricName || "Main", sku: product.sku || "" }, ...parsed.extraColours]
-      : [{ hex: "#D8CBB4", name: "Oat", sku: "" }]
-  );
+  const [colorLib, setColorLib] = useState<Color[]>([]);
+  const [colours, setColours] = useState<ColourRow[]>(() => {
+    const photoFor = (name: string) => product?.colorImages?.[name];
+    if (product) {
+      return [
+        { hex: product.fabric, name: product.fabricName || "Main", sku: product.sku || "", photo: photoFor(product.fabricName || "Main") },
+        ...parsed.extraColours.map((c) => ({ ...c, photo: photoFor(c.name) })),
+      ];
+    }
+    return [{ hex: "#D8CBB4", name: "Oat", sku: "" }];
+  });
+  // Inline "new colour" creator: which row is creating one, plus its draft fields.
+  const [newColorRow, setNewColorRow] = useState<number | null>(null);
+  const [newColorName, setNewColorName] = useState("");
+  const [newColorHex, setNewColorHex] = useState("#D8CBB4");
+  const [newColorImage, setNewColorImage] = useState("");
+  const [newColorSaving, setNewColorSaving] = useState(false);
   const [dims, setDims] = useState<Record<string, string>>(parsed.dims);
   const [inStock, setInStock] = useState(product?.inStock ?? false);
   const [isNew, setIsNew] = useState(product?.tag === "New");
@@ -130,6 +196,9 @@ export default function SofaForm({ product }: { product?: Product }) {
         if (!product && categories.length > 0) setCategory(categories[0].slug);
       })
       .catch(() => {});
+    api<{ colors: Color[] }>("/api/colors")
+      .then(({ colors }) => setColorLib(colors))
+      .catch(() => {});
   }, [product]);
 
   const setColour = (i: number, patch: Partial<ColourRow>) =>
@@ -138,6 +207,39 @@ export default function SofaForm({ product }: { product?: Product }) {
   const removeColour = (i: number) => setColours((cs) => (cs.length > 1 ? cs.filter((_, j) => j !== i) : cs));
   const makeMain = (i: number) =>
     setColours((cs) => (i === 0 ? cs : [cs[i], ...cs.slice(0, i), ...cs.slice(i + 1)]));
+
+  /** Pick a library colour into row i (syncs name + hex). */
+  const pickLibraryColor = (i: number, colorId: string) => {
+    if (colorId === "__new__") {
+      setNewColorRow(i);
+      setNewColorName(colours[i]?.name && !colorLib.some((c) => c.name === colours[i].name) ? colours[i].name : "");
+      setNewColorHex(colours[i]?.hex || "#D8CBB4");
+      setNewColorImage("");
+      return;
+    }
+    const lib = colorLib.find((c) => c.id === colorId);
+    if (lib) setColour(i, { name: lib.name, hex: lib.hex || colours[i].hex });
+  };
+
+  /** Create the inline-drafted colour in the library, then pick it into its row. */
+  const createInlineColor = async () => {
+    if (newColorRow === null || !newColorName.trim()) return;
+    setNewColorSaving(true);
+    try {
+      const { color } = await api<{ color: Color }>("/api/colors", "POST", {
+        name: newColorName.trim(),
+        hex: newColorHex,
+        imageUrl: newColorImage.trim() || undefined,
+      });
+      setColorLib((cs) => [...cs, color].sort((a, b) => a.name.localeCompare(b.name)));
+      setColour(newColorRow, { name: color.name, hex: color.hex || newColorHex });
+      setNewColorRow(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create colour.");
+    } finally {
+      setNewColorSaving(false);
+    }
+  };
 
   const save = async (publish: boolean) => {
     setError("");
@@ -168,6 +270,12 @@ export default function SofaForm({ product }: { product?: Product }) {
       if (phoneVerification) details.push("Phone verification required at checkout");
       if (maxCod.trim()) details.push(`Max COD order value: £${maxCod.trim()}`);
 
+      const mainName = colours[0].name.trim() || "Main";
+      const colorImages: Record<string, string> = {};
+      for (const c of colours) {
+        const n = c.name.trim();
+        if (n && c.photo) colorImages[n] = c.photo;
+      }
       const payload = {
         name: name.trim(),
         sub: sub.trim(),
@@ -176,7 +284,8 @@ export default function SofaForm({ product }: { product?: Product }) {
         sku: sku.trim(),
         fabricType,
         fabric: colours[0].hex,
-        fabricName: colours[0].name.trim() || "Main",
+        fabricName: mainName,
+        colourName: mainName,
         bg: product?.bg ?? "#EFE8DC",
         accent: product?.accent ?? "#B65A35",
         price: priceNum,
@@ -184,7 +293,8 @@ export default function SofaForm({ product }: { product?: Product }) {
         inStock: publish,
         tag: isNew ? "New" : product?.tag === "New" ? undefined : product?.tag,
         category,
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: imageUrl.trim() || colours[0].photo || (product ? null : undefined),
+        colorImages: Object.keys(colorImages).length ? colorImages : product ? null : undefined,
         details,
       };
       if (product) {
@@ -293,8 +403,15 @@ export default function SofaForm({ product }: { product?: Product }) {
                 </div>
               ))}
             </div>
+            <ImageUploadField
+              label="Main photo"
+              hint="Upload from your device — it goes to Cloudinary automatically. Or paste a URL below."
+              folder="products"
+              value={imageUrl}
+              onChange={setImageUrl}
+            />
             <div>
-              <label className={labelClass} htmlFor="f-img">Photo URL <span className="text-muted font-normal">(optional — illustration is used when empty)</span></label>
+              <label className={labelClass} htmlFor="f-img">Photo URL <span className="text-muted font-normal">(optional — paste instead of uploading; illustration is used when empty)</span></label>
               <input id="f-img" className={fieldClass} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" inputMode="url" />
             </div>
           </Card>
@@ -306,19 +423,22 @@ export default function SofaForm({ product }: { product?: Product }) {
                 <IconPlus size={16} /> Add colour
               </button>
             </div>
-            <p className="text-muted text-[13px] -mt-2">The first colour is the live product fabric. Others are listed as “Also available”.</p>
+            <p className="text-muted text-[13px] -mt-2">The first colour is the live product fabric. Others are listed as “Also available”. Pick from the colour library or create a new one inline.</p>
             <div className="overflow-x-auto -mx-2 px-2">
-              <table className="w-full min-w-[560px]">
+              <table className="w-full min-w-[720px]">
                 <thead>
                   <tr>
                     <th className="text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-muted px-2 py-2">Colour</th>
-                    <th className="text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-muted px-2 py-2">Name</th>
+                    <th className="text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-muted px-2 py-2">Name (library)</th>
+                    <th className="text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-muted px-2 py-2">Photo</th>
                     <th className="text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-muted px-2 py-2">SKU</th>
                     <th className="w-[110px]" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {colours.map((c, i) => (
+                  {colours.map((c, i) => {
+                    const libMatch = colorLib.find((l) => l.name === c.name);
+                    return (
                     <tr key={i} className="border-t border-sand">
                       <td className="px-2 py-2.5">
                         <input
@@ -330,13 +450,24 @@ export default function SofaForm({ product }: { product?: Product }) {
                         />
                       </td>
                       <td className="px-2 py-2.5">
-                        <input
+                        <select
                           aria-label={`Colour ${i + 1} name`}
                           className={fieldClass + " min-h-[44px]!"}
-                          value={c.name}
-                          onChange={(e) => setColour(i, { name: e.target.value })}
-                          placeholder="e.g. Oat"
-                        />
+                          value={libMatch ? libMatch.id : ""}
+                          onChange={(e) => pickLibraryColor(i, e.target.value)}
+                        >
+                          <option value="" disabled>{colorLib.length ? "Choose a colour…" : "Loading colours…"}</option>
+                          {colorLib.map((l) => (
+                            <option key={l.id} value={l.id}>{l.name}</option>
+                          ))}
+                          <option value="__new__">＋ New colour…</option>
+                        </select>
+                        {!libMatch && c.name && (
+                          <p className="text-[12px] text-muted mt-1">Custom: “{c.name}” — pick “New colour…” to save it to the library.</p>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <ColourPhotoButton photo={c.photo} onChange={(url) => setColour(i, { photo: url || undefined })} />
                       </td>
                       <td className="px-2 py-2.5">
                         <input
@@ -365,10 +496,68 @@ export default function SofaForm({ product }: { product?: Product }) {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            {newColorRow !== null && (
+              <div className="mt-4 rounded-[16px] border-[1.5px] border-line bg-cream/60 p-4 flex flex-col gap-4">
+                <p className="font-semibold text-[15px]">New colour for row {newColorRow + 1} <span className="font-normal text-muted">— saved to the colour library</span></p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass} htmlFor="nc-name">Name</label>
+                    <input
+                      id="nc-name"
+                      className={fieldClass}
+                      value={newColorName}
+                      onChange={(e) => setNewColorName(e.target.value)}
+                      placeholder="e.g. Burnt Orange"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="nc-hex">Colour code</label>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        id="nc-hex"
+                        type="color"
+                        value={newColorHex}
+                        onChange={(e) => setNewColorHex(e.target.value)}
+                        className="w-11 h-11 rounded-full cursor-pointer bg-transparent border border-line p-0 flex-none"
+                        aria-label="Pick a colour"
+                      />
+                      <input
+                        className={fieldClass}
+                        value={newColorHex}
+                        onChange={(e) => setNewColorHex(e.target.value)}
+                        placeholder="#C27B5A"
+                        aria-label="Hex code"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <ImageUploadField
+                  label="Swatch image (optional)"
+                  hint="Upload a fabric swatch from your device."
+                  folder="colors"
+                  value={newColorImage}
+                  onChange={setNewColorImage}
+                />
+                <div className="flex gap-3 justify-end">
+                  <button type="button" className={btnAdmin} onClick={() => setNewColorRow(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={btnAdminPrimary}
+                    onClick={createInlineColor}
+                    disabled={newColorSaving || !newColorName.trim()}
+                  >
+                    {newColorSaving ? "Creating…" : "Create & use colour"}
+                  </button>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card>

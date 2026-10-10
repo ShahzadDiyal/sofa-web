@@ -11,6 +11,7 @@ import {
   IconArticle,
   IconDashboard,
   IconPackage,
+  IconPalette,
   IconPhone,
   IconSettings,
   IconSofa,
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
   { href: "/admin/products", label: "Sofas", Icon: IconSofa },
   { href: "/admin/categories", label: "Categories", Icon: IconTag },
+  { href: "/admin/colors", label: "Colours", Icon: IconPalette },
   { href: "/admin/posts", label: "Blog", Icon: IconArticle },
   { href: "/admin/customers", label: "Customers", Icon: IconPhone },
   { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
@@ -38,12 +40,57 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [newCount, setNewCount] = useState(0);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const isLoginPage = pathname === "/admin/login";
+
+  // Auth gate for the admin UI: the real security boundary is the API
+  // (every admin route calls requireAdmin()), this keeps signed-out
+  // visitors from seeing empty admin screens.
+  useEffect(() => {
+    if (isLoginPage) return;
+    fetch("/api/admin/session")
+      .then((r) => {
+        if (!r.ok) throw new Error("signed out");
+        return r.json();
+      })
+      .then((d) => {
+        setAdminEmail(d.email ?? null);
+        setAuthChecked(true);
+      })
+      .catch(() => window.location.replace("/admin/login"));
+  }, [isLoginPage]);
 
   useEffect(() => {
+    if (!authChecked) return;
     api<{ orders: Order[] }>("/api/orders")
       .then(({ orders }) => setNewCount(orders.filter((o) => o.status === "new").length))
       .catch(() => {});
-  }, [pathname]);
+  }, [pathname, authChecked]);
+
+  async function signOut() {
+    await fetch("/api/admin/session", { method: "DELETE" }).catch(() => {});
+    window.location.replace("/admin/login");
+  }
+
+  // Login page renders without the admin chrome.
+  if (isLoginPage) return <>{children}</>;
+
+  // Shimmer while the session check runs (no content flash for signed-out visitors).
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-cream">
+        <div className="lg:pl-[250px]">
+          <div className="px-4 sm:px-6 lg:px-9 py-6 lg:py-8 flex flex-col gap-4 max-w-[1400px]">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-[120px] rounded-[12px] bg-stone/20 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const linkCls = (active: boolean) =>
     `flex items-center gap-3 px-3.5 py-[11px] rounded-[12px] font-medium text-[15px] min-h-[44px] transition whitespace-nowrap ${
@@ -86,11 +133,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </nav>
         <div className="mt-auto flex items-center gap-3 p-3 bg-[#27463C] rounded-[14px]">
           <span className="w-[38px] h-[38px] rounded-full bg-peach text-terra grid place-items-center font-semibold shrink-0">
-            SO
+            {(adminEmail?.[0] ?? "S").toUpperCase()}
           </span>
-          <div className="min-w-0">
-            <div className="font-semibold text-[14px]">Store Owner</div>
-            <div className="text-[12px] text-[#C9D6CC]">Store owner</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-[14px] truncate">{adminEmail ?? "Admin"}</div>
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-[12px] text-[#C9D6CC] underline hover:text-cream"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </aside>

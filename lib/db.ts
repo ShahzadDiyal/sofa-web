@@ -6,9 +6,11 @@
 
 import { promises as fs } from "fs";
 import path from "path";
+import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin";
 import {
   seedCategories,
+  seedColors,
   seedFaqs,
   seedPosts,
   seedProducts,
@@ -17,6 +19,7 @@ import {
 } from "./seed";
 import type {
   Category,
+  Color,
   Faq,
   Order,
   OrderStatus,
@@ -31,6 +34,7 @@ const STORE_PATH = path.join(process.cwd(), "data", "store.json");
 interface LocalStore {
   products: Product[];
   categories: Category[];
+  colors: Color[];
   faqs: Faq[];
   reviews: Review[];
   orders: Order[];
@@ -64,6 +68,7 @@ function freshLocal(): LocalStore {
   return {
     products: structuredClone(seedProducts),
     categories: structuredClone(seedCategories),
+    colors: structuredClone(seedColors),
     faqs: structuredClone(seedFaqs),
     reviews: structuredClone(seedReviews),
     orders: [],
@@ -249,6 +254,15 @@ export async function saveProduct(input: Partial<Product> & { name: string }): P
           slug: input.slug || existing?.slug || slugify(input.name),
           updatedAt: nowIso,
         } as Product;
+        // Explicit nulls clear a field (e.g. removing a photo).
+        for (const [k, v] of Object.entries(input)) {
+          if (v === null) (merged as unknown as Record<string, unknown>)[k] = FieldValue.delete();
+        }
+        await ref.set(merged, { merge: true });
+        for (const [k, v] of Object.entries(input)) {
+          if (v === null) delete (merged as unknown as Record<string, unknown>)[k];
+        }
+        return merged;
         await ref.set(merged, { merge: true });
         return merged;
       }
@@ -355,7 +369,14 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
         const ref = col.doc(input.id);
         const existing = (await ref.get()).data() as Category | undefined;
         const merged = { ...(existing as Category), ...input } as Category;
+        // Explicit nulls clear a field (e.g. removing a photo).
+        for (const [k, v] of Object.entries(input)) {
+          if (v === null) (merged as unknown as Record<string, unknown>)[k] = FieldValue.delete();
+        }
         await ref.set(merged, { merge: true });
+        for (const [k, v] of Object.entries(input)) {
+          if (v === null) delete (merged as unknown as Record<string, unknown>)[k];
+        }
         return merged;
       }
       const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -600,6 +621,106 @@ export async function saveFaqs(faqs: Faq[]): Promise<Faq[]> {
       return faqs;
     });
 
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- content: managed colour library ---------- */
+
+export async function listColors(): Promise<Color[]> {
+  return resilientRead(
+    "colors:all",
+    async (f) => {
+      const snap = await f.collection("colors").orderBy("name").get();
+      if (snap.empty) {
+        const batch = f.batch();
+        for (const c of seedColors) batch.set(f.collection("colors").doc(c.id), c);
+        await batch.commit();
+        return seedColors;
+      }
+      return snap.docs.map((d) => d.data() as Color);
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.colors].sort((a, b) => a.name.localeCompare(b.name));
+    }
+  );
+}
+
+type ColorInput = Partial<Omit<Color, "hex" | "imageUrl">> & {
+  hex?: string | null; // null clears the field; undefined leaves it
+  imageUrl?: string | null; // null clears the field; undefined leaves it
+};
+
+export async function saveColor(input: ColorInput): Promise<Color> {
+  try {
+    const f = db();
+    const nowIso = new Date().toISOString();
+    if (f) {
+      const col = f.collection("colors");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const existing = (await ref.get()).data() as Color | undefined;
+        const patch: Record<string, unknown> = { updatedAt: nowIso };
+        if (input.name !== undefined) patch.name = input.name.trim() || existing?.name || "Unnamed";
+        // null explicitly clears a field; undefined leaves it untouched.
+        if (input.hex !== undefined) patch.hex = input.hex || FieldValue.delete();
+        if (input.imageUrl !== undefined) patch.imageUrl = input.imageUrl || FieldValue.delete();
+        await ref.set(patch, { merge: true });
+        return { ...(existing as Color), ...patch } as Color;
+      }
+      const id = `color-${Date.now()}`;
+      const color: Color = {
+        id,
+        name: (input.name ?? "").trim() || "Unnamed",
+        hex: input.hex || undefined,
+        imageUrl: input.imageUrl || undefined,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      await col.doc(id).set(color);
+      return color;
+    }
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.colors.findIndex((c) => c.id === input.id);
+        if (i >= 0) {
+          const cur = { ...s.colors[i] };
+          if (input.name !== undefined) cur.name = input.name.trim() || cur.name;
+          if (input.hex !== undefined) { if (input.hex) cur.hex = input.hex; else delete cur.hex; }
+          if (input.imageUrl !== undefined) { if (input.imageUrl) cur.imageUrl = input.imageUrl; else delete cur.imageUrl; }
+          cur.updatedAt = nowIso;
+          s.colors[i] = cur;
+          return cur;
+        }
+      }
+      const color: Color = {
+        id: `color-${Date.now()}`,
+        name: (input.name ?? "").trim() || "Unnamed",
+        hex: input.hex || undefined,
+        imageUrl: input.imageUrl || undefined,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      s.colors.push(color);
+      return color;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteColor(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("colors").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.colors = s.colors.filter((c) => c.id !== id);
+    });
   } finally {
     invalidateReadCache();
   }

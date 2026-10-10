@@ -1,9 +1,21 @@
 /* Seed content transcribed from the design mockup.
    Everything here is editable from the admin panel once wired. */
 
-import type { Category, Faq, Post, Product, Review, SiteSettings } from "./types";
+import type { Category, Color, Faq, Post, Product, Review, SiteSettings } from "./types";
 
 const now = "2026-10-09T10:00:00.000Z";
+
+/* Managed colour library seeds — mirrors the original storefront palette. */
+export const seedColors: Color[] = [
+  { id: "color-oat", name: "Oat", hex: "#D8CBB4", createdAt: now, updatedAt: now },
+  { id: "color-sage", name: "Sage", hex: "#5E7A6B", createdAt: now, updatedAt: now },
+  { id: "color-charcoal", name: "Charcoal", hex: "#3F4443", createdAt: now, updatedAt: now },
+  { id: "color-terracotta", name: "Terracotta", hex: "#C27B5A", createdAt: now, updatedAt: now },
+  { id: "color-navy", name: "Navy", hex: "#2E3F5C", createdAt: now, updatedAt: now },
+  { id: "color-mink", name: "Mink", hex: "#8B7B6B", createdAt: now, updatedAt: now },
+  { id: "color-blush", name: "Blush", hex: "#D9B8AE", createdAt: now, updatedAt: now },
+  { id: "color-mustard", name: "Mustard", hex: "#CFA33A", createdAt: now, updatedAt: now },
+];
 
 export const seedCategories: Category[] = [
   { id: "cat-3seater", slug: "3-seater-sofas", name: "3 seater sofas", type: "three", fabric: "#D8CBB4", bg: "#EFE8DC", blurb: "The classic family sofa — room for three, built for every day." },

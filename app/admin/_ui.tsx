@@ -198,6 +198,20 @@ export function patchOrder(id: string, status: OrderStatus, note?: string) {
   return api<{ order: import("@/lib/types").Order }>(`/api/orders/${id}`, "PATCH", { status, note });
 }
 
+/* ---------- image uploads (device → Cloudinary) ---------- */
+
+/** Upload an image file from the device to Cloudinary via /api/admin/upload.
+    Resolves to the public URL. Folder defaults to "uploads". */
+export async function uploadImage(file: File, folder = "uploads"): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("folder", folder);
+  const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+  const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok || !json.url) throw new Error(json.error || `Upload failed (${res.status}).`);
+  return json.url;
+}
+
 /* ---------- misc ---------- */
 
 export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
