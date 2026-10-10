@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import type { Category } from "@/lib/types";
+import type { Category, Product } from "@/lib/types";
 import {
   IconBasket,
   IconChevronDown,
@@ -25,6 +25,7 @@ const SALE_LINK = { label: "Sale", href: "/sofas?sale=1" };
 function useMenuData() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [products, setProducts] = useState<Product[] | null>(null);
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
@@ -33,39 +34,49 @@ function useMenuData() {
     fetch("/api/products")
       .then((r) => r.json())
       .then((d) => {
+        const list = d.products ?? [];
         const m: Record<string, number> = {};
-        for (const p of d.products ?? []) m[p.category] = (m[p.category] ?? 0) + 1;
+        for (const p of list) m[p.category] = (m[p.category] ?? 0) + 1;
         setCounts(m);
+        setProducts(list);
       })
       .catch(() => {});
   }, []);
-  return { categories, counts };
+  return { categories, counts, products };
 }
 
-function CategoryTile({ category, count }: { category: Category; count?: number }) {
+/* Compact product tile for the mega-menu "Most popular" panel — shows the
+   product's real photo when it has one, falling back to the illustration. */
+function ProductTile({ product }: { product: Product }) {
   return (
-    <Link
-      href={`/sofas?category=${category.slug}`}
-      className="group/tile flex flex-col gap-2"
-    >
+    <Link href={`/sofas/${product.slug}`} className="group/tile flex flex-col gap-2">
       <span className="rounded-[18px] overflow-hidden block bg-cream">
-        <SofaIllustration
-          type={category.type}
-          fabric={category.fabric}
-          bg={category.bg}
-          title={category.name}
-          className="w-full aspect-[4/3] group-hover/tile:scale-[1.04] transition-transform duration-300"
-        />
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            loading="lazy"
+            className="w-full aspect-[4/3] object-cover group-hover/tile:scale-[1.04] transition-transform duration-300"
+          />
+        ) : (
+          <SofaIllustration
+            type={product.type}
+            fabric={product.fabric}
+            bg={product.bg}
+            accent={product.accent}
+            title={product.name}
+            className="w-full aspect-[4/3] group-hover/tile:scale-[1.04] transition-transform duration-300"
+          />
+        )}
       </span>
       <span>
         <span className="block text-[14px] font-medium leading-snug group-hover/tile:underline underline-offset-4">
-          {category.name}
+          {product.name}
         </span>
-        {count !== undefined && (
-          <span className="block text-[12px] text-muted mt-0.5">
-            {count} {count === 1 ? "product" : "products"}
-          </span>
-        )}
+        <span className="block text-[12px] text-muted mt-0.5">
+          £{product.price.toLocaleString("en-GB")}
+        </span>
       </span>
     </Link>
   );
@@ -103,7 +114,7 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const { categories, counts } = useMenuData();
+  const { categories, counts, products } = useMenuData();
   const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -161,8 +172,18 @@ export function Header() {
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
           {menuGroups.map(([label, cats]) => {
-            const popular = [...cats]
-              .sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0))
+            /* Most popular PRODUCTS in this menu group — real photos first,
+               then featured/rating order. */
+            const catSlugs = new Set(cats.map((c) => c.slug));
+            const popular = (products ?? [])
+              .filter((p) => catSlugs.has(p.category) && p.inStock !== false)
+              .sort((a, b) => {
+                const ai = a.imageUrl ? 0 : 1;
+                const bi = b.imageUrl ? 0 : 1;
+                if (ai !== bi) return ai - bi;
+                if (!!a.featured !== !!b.featured) return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+                return (b.rating ?? 0) - (a.rating ?? 0);
+              })
               .slice(0, 4);
             const isOpen = openMenu === label;
             return (
@@ -224,13 +245,13 @@ export function Header() {
                       </div>
                       <div>
                         <p className="label-caps mb-3">Most popular</p>
-                        {categories === null ? (
+                        {products === null ? (
                           <ShimmerTiles />
                         ) : (
                           <div className="grid grid-cols-2 gap-4">
-                            {popular.map((c) => (
-                              <div key={c.slug} onClick={() => setOpenMenu(null)}>
-                                <CategoryTile category={c} count={counts[c.slug] ?? 0} />
+                            {popular.map((p) => (
+                              <div key={p.slug} onClick={() => setOpenMenu(null)}>
+                                <ProductTile product={p} />
                               </div>
                             ))}
                           </div>
