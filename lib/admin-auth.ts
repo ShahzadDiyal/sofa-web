@@ -5,7 +5,8 @@
    `users` collection (see lib/admin-users.ts) — the account must exist
    there with role "admin". On success the server sets the httpOnly
    `sofora_admin` cookie: base64url(email) + "." + HMAC-SHA256 signature,
-   signed with ADMIN_SESSION_SECRET (or a random per-boot secret in dev).
+   signed with ADMIN_SESSION_SECRET (production) or a fixed dev secret
+   (local dev only — sessions survive server restarts).
 
    Every admin-only API route must call `requireAdmin()` at the top of its
    handler. getAdminEmail() re-checks the Firestore record on every call,
@@ -21,7 +22,7 @@
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { getAdminUser } from "./admin-users";
 
 export const ADMIN_COOKIE = "sofora_admin";
@@ -32,11 +33,13 @@ function sessionSecret(): Buffer {
     const env = process.env.ADMIN_SESSION_SECRET;
     if (env) {
       secret = Buffer.from(env, "utf8");
+    } else if (process.env.NODE_ENV === "production") {
+      // Fail closed: forging a session cookie must never be possible live.
+      throw new Error("[admin-auth] ADMIN_SESSION_SECRET is not set.");
     } else {
-      secret = randomBytes(32);
-      console.warn(
-        "[admin-auth] ADMIN_SESSION_SECRET is not set — using a random per-boot secret (sessions expire on restart)."
-      );
+      // Local dev: stable across restarts so sign-in survives `next dev`
+      // auto-restarts (e.g. after a .env edit). Never used in production.
+      secret = Buffer.from("sofora-dev-session-secret", "utf8");
     }
   }
   return secret;
