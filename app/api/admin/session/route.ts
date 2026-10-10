@@ -1,7 +1,9 @@
 /* Admin session endpoints.
    POST   { email, password } -> checks the Firestore `users` collection
                        (account must exist with role "admin"), sets the
-                       httpOnly `sofora_admin` session cookie (5 days).
+                       httpOnly `sofora_admin` session cookie. The cookie
+                       is long-lived (10 years) — the admin session
+                       effectively never expires.
    GET                    -> 200 { email } when signed in, else 401.
    DELETE                 -> clears the session cookie (sign out). */
 
@@ -9,7 +11,8 @@ import { NextResponse } from "next/server";
 import { ADMIN_COOKIE, getAdminEmail, makeSessionValue } from "@/lib/admin-auth";
 import { verifyAdminCredentials } from "@/lib/admin-users";
 
-const FIVE_DAYS_S = 5 * 24 * 60 * 60;
+// 10 years — the admin session effectively never expires.
+const SESSION_MAX_AGE_S = 10 * 365 * 24 * 60 * 60;
 
 export async function POST(req: Request) {
   const { email, password } = await req.json().catch(() => ({}));
@@ -19,8 +22,19 @@ export async function POST(req: Request) {
   let user;
   try {
     user = await verifyAdminCredentials(email, password);
-  } catch {
-    return NextResponse.json({ error: "Server Firebase is not configured." }, { status: 500 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Sign-in failed.";
+    const quota = /quota|exhausted|resource_exhausted/i.test(msg);
+    return NextResponse.json(
+      {
+        error: quota
+          ? "Firestore quota is exhausted right now — please try again later."
+          : msg === "Server Firebase is not configured."
+            ? "Server Firebase is not configured."
+            : "Sign-in failed. Please try again.",
+      },
+      { status: quota ? 503 : 500 }
+    );
   }
   if (!user) {
     return NextResponse.json(
@@ -34,7 +48,7 @@ export async function POST(req: Request) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: FIVE_DAYS_S,
+    maxAge: SESSION_MAX_AGE_S,
   });
   return res;
 }

@@ -24,6 +24,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { getAdminUser } from "./admin-users";
+import { isFirebaseConfigured } from "./firebase-admin";
 
 export const ADMIN_COOKIE = "sofora_admin";
 
@@ -80,6 +81,15 @@ function verifySessionValue(value: string): string | null {
   return email;
 }
 
+/** Reject if the promise doesn't settle within ms (bounds Firestore stalls). */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timed out")), ms);
+  });
+  return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
+}
+
 /** Email of the signed-in admin, or null when not signed in / not an admin. */
 export async function getAdminEmail(): Promise<string | null> {
   const jar = await cookies();
@@ -87,12 +97,19 @@ export async function getAdminEmail(): Promise<string | null> {
   if (!session) return null;
   const email = verifySessionValue(session);
   if (!email) return null;
+  // Without Firebase no session could ever have been issued — fail closed.
+  if (!isFirebaseConfigured()) return null;
   try {
-    const user = await getAdminUser(email);
+    const user = await withTimeout(getAdminUser(email), 5000);
+    // Account deleted or demoted: revoke immediately — fail closed.
     if (!user || user.role !== "admin") return null;
     return user.email;
   } catch {
-    return null;
+    // Transient Firestore failure (quota exhausted, network): the HMAC
+    // signature is valid and the account held the admin role when this
+    // session was issued, so keep the admin signed in instead of 401ing
+    // every admin API call during the outage.
+    return email;
   }
 }
 

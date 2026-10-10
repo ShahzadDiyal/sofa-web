@@ -21,14 +21,24 @@ function isRole(v: unknown): v is AdminRole {
   return v === "admin" || v === "user";
 }
 
+/** Honest 500 for Firestore failures: quota exhaustion is not "not configured". */
+function dbError(e: unknown) {
+  const msg = e instanceof Error ? e.message : "";
+  const quota = /quota|exhausted|resource_exhausted/i.test(msg);
+  return NextResponse.json(
+    { error: quota ? "Firestore quota is exhausted right now — please try again later." : "Server Firebase is not configured." },
+    { status: quota ? 503 : 500 }
+  );
+}
+
 export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
   try {
     const users = await listAdminUsers();
     return NextResponse.json({ users });
-  } catch {
-    return NextResponse.json({ error: "Server Firebase is not configured." }, { status: 500 });
+  } catch (e) {
+    return dbError(e);
   }
 }
 
@@ -73,8 +83,8 @@ export async function PATCH(req: Request) {
     }
     const user = await setAdminUserRole(email, role);
     return NextResponse.json({ user });
-  } catch {
-    return NextResponse.json({ error: "Server Firebase is not configured." }, { status: 500 });
+  } catch (e) {
+    return dbError(e);
   }
 }
 
@@ -94,7 +104,7 @@ export async function DELETE(req: Request) {
     }
     await deleteAdminUser(email);
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Server Firebase is not configured." }, { status: 500 });
+  } catch (e) {
+    return dbError(e);
   }
 }

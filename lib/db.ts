@@ -102,7 +102,32 @@ async function readLocalFile(): Promise<LocalStore> {
   if (memoryStore) return memoryStore;
   try {
     const raw = await fs.readFile(STORE_PATH, "utf-8");
-    memoryStore = JSON.parse(raw) as LocalStore;
+    const parsed = JSON.parse(raw) as Partial<LocalStore>;
+    const fresh = freshLocal();
+    // The file may predate newer collections (colors, coupons, …) — fill
+    // gaps from the seed shape instead of crashing the fallback path.
+    const store: LocalStore = {
+      ...fresh,
+      ...parsed,
+      settings: { ...fresh.settings, ...(parsed.settings ?? {}) },
+    };
+    for (const k of [
+      "products",
+      "categories",
+      "colors",
+      "queries",
+      "coupons",
+      "flashSales",
+      "productReviews",
+      "faqs",
+      "reviews",
+      "orders",
+      "posts",
+    ] as const) {
+      if (!Array.isArray(store[k])) store[k] = [] as never;
+    }
+    if (typeof store.orderSeq !== "number") store.orderSeq = 1001;
+    memoryStore = store;
     return memoryStore;
   } catch {
     const fresh = freshLocal();
