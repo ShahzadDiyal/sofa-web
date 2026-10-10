@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSettings } from "@/lib/db";
 import { absoluteUrl } from "@/lib/seo";
 import { IconMail, IconPhone, IconPin } from "@/components/Icons";
+import QueryForm from "./QueryForm";
 
 export const metadata: Metadata = {
   title: "Contact us",
@@ -43,6 +44,9 @@ export default async function ContactPage() {
           <div className="font-semibold">Visit / write</div>
           <p className="text-mint text-sm mt-1">{s.address}</p>
         </div>
+      </div>
+      <div className="mt-10">
+        <QueryForm />
       </div>
     </div>
   );

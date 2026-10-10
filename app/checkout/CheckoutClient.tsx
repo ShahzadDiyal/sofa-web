@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SiteSettings } from "@/lib/types";
@@ -45,13 +45,59 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
 
+  /* Coupon code: validated server-side; the order total is re-validated
+     again in createOrder so the client discount is never trusted. */
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState(""); // applied code
+  const [discount, setDiscount] = useState(0);
+  const [couponMsg, setCouponMsg] = useState("");
+  const [couponChecking, setCouponChecking] = useState(false);
+
+  const applyCoupon = async (code: string, subtotal: number, silent = false) => {
+    const c = code.trim();
+    if (!c) return false;
+    if (!silent) {
+      setCouponChecking(true);
+      setCouponMsg("");
+    }
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: c, subtotal }),
+      });
+      const data = await res.json();
+      if (!data.valid) {
+        if (!silent) setCouponMsg(data.reason || "That code didn't work.");
+        setCoupon("");
+        setDiscount(0);
+        return false;
+      }
+      setCoupon(data.code);
+      setDiscount(data.discount);
+      if (!silent) setCouponMsg("");
+      return true;
+    } catch {
+      if (!silent) setCouponMsg("Couldn't check that code — try again.");
+      return false;
+    } finally {
+      if (!silent) setCouponChecking(false);
+    }
+  };
+
+  // Re-validate the coupon if the basket changes underneath it.
+  useEffect(() => {
+    if (coupon) applyCoupon(coupon, basketTotal, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basketTotal]);
+
   const set = (k: keyof typeof form, v: string | boolean) => {
     setForm((f) => ({ ...f, [k]: v }));
     setError("");
   };
 
   const deliveryFee = basketTotal >= settings.freeDeliveryThreshold || basketTotal === 0 ? 0 : 29;
-  const due = basketTotal + deliveryFee;
+  const due = Math.max(0, basketTotal - discount) + deliveryFee;
 
   async function placeOrder(e: React.FormEvent) {
     e.preventDefault();
@@ -77,6 +123,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
           },
           deliverySlot: form.slot,
           paymentMethod: form.paymentMethod,
+          couponCode: coupon || undefined,
         }),
       });
       const data = await res.json();
@@ -318,6 +365,12 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                   <span className="text-body">Subtotal</span>
                   <span>{gbp(basketTotal)}.00</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-[#2F7D4F]">
+                    <span>Coupon {coupon}</span>
+                    <span>−{gbp(discount)}.00</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-body">Delivery</span>
                   {deliveryFee === 0 ? (
@@ -326,6 +379,41 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                     <span>{gbp(deliveryFee)}.00</span>
                   )}
                 </div>
+              </div>
+              <div>
+                {coupon ? (
+                  <div className="flex justify-between items-center bg-mint rounded-[14px] px-4 py-3 text-[14px]">
+                    <span className="font-semibold text-forest">Code {coupon} applied</span>
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 text-forest/70 hover:text-forest"
+                      onClick={() => { setCoupon(""); setDiscount(0); setCouponInput(""); setCouponMsg(""); }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Coupon code"
+                        aria-label="Coupon code"
+                        className="flex-1 min-w-0 bg-white border-[1.5px] border-line rounded-[14px] px-4 min-h-[48px] text-[15px] uppercase outline-none focus:border-forest transition placeholder:normal-case placeholder:text-muted/70"
+                      />
+                      <button
+                        type="button"
+                        disabled={couponChecking || !couponInput.trim()}
+                        onClick={() => applyCoupon(couponInput, basketTotal)}
+                        className="px-5 min-h-[48px] rounded-[14px] bg-forest text-cream font-semibold text-[15px] disabled:opacity-50"
+                      >
+                        {couponChecking ? "…" : "Apply"}
+                      </button>
+                    </div>
+                    {couponMsg && <p className="text-[13px] text-[#B3402F] mt-1.5">{couponMsg}</p>}
+                  </div>
+                )}
               </div>
               <div className="border-t border-line pt-4 flex justify-between items-baseline">
                 <span className="font-semibold">Due on delivery</span>

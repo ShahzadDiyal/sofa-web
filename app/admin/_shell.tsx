@@ -9,24 +9,30 @@ import { useEffect, useState } from "react";
 import {
   IconArrowRight,
   IconArticle,
+  IconBolt,
   IconDashboard,
+  IconMail,
   IconPackage,
   IconPalette,
   IconPhone,
   IconSettings,
   IconSofa,
   IconTag,
+  IconTicket,
   IconTruck,
 } from "@/components/Icons";
 import { api } from "./_ui";
-import type { Order } from "@/lib/types";
+import type { ContactQuery, Order } from "@/lib/types";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
   { href: "/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
+  { href: "/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
   { href: "/admin/products", label: "Sofas", Icon: IconSofa },
   { href: "/admin/categories", label: "Categories", Icon: IconTag },
   { href: "/admin/colors", label: "Colours", Icon: IconPalette },
+  { href: "/admin/coupons", label: "Coupons", Icon: IconTicket },
+  { href: "/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
   { href: "/admin/posts", label: "Blog", Icon: IconArticle },
   { href: "/admin/customers", label: "Customers", Icon: IconPhone },
   { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
@@ -40,6 +46,7 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [newCount, setNewCount] = useState(0);
+  const [newQueryCount, setNewQueryCount] = useState(0);
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -66,6 +73,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (!authChecked) return;
     api<{ orders: Order[] }>("/api/orders")
       .then(({ orders }) => setNewCount(orders.filter((o) => o.status === "new").length))
+      .catch(() => {});
+    api<{ queries: ContactQuery[] }>("/api/queries")
+      .then(({ queries }) => setNewQueryCount(queries.filter((x) => x.status === "new").length))
       .catch(() => {});
   }, [pathname, authChecked]);
 
@@ -99,15 +109,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const nav = (
     <>
-      {NAV.map(({ href, label, Icon, exact, badge }) => {
+      {NAV.map(({ href, label, Icon, exact, badge, queryBadge }) => {
         const active = isActive(pathname, href, exact);
+        const count = badge ? newCount : queryBadge ? newQueryCount : 0;
+        const showBadge = (badge || queryBadge) && count > 0;
         return (
           <Link key={href} href={href} className={linkCls(active)} aria-current={active ? "page" : undefined}>
             <Icon size={20} />
             <span>{label}</span>
-            {badge && newCount > 0 && (
+            {showBadge && (
               <span className="ml-auto bg-terra text-white rounded-full text-[12px] font-semibold px-2 py-0.5 min-w-[24px] text-center">
-                {newCount}
+                {count}
               </span>
             )}
           </Link>

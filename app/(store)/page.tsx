@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getSettings, listCategories, listFaqs, listProducts, listReviews } from "@/lib/db";
+import { getActiveFlashSale, getSettings, listCategories, listFaqs, listProducts, listReviews } from "@/lib/db";
+import FlashSaleBanner from "@/components/FlashSaleBanner";
 import { seedSteps, seedWhy } from "@/lib/seed";
 import { absoluteUrl, defaultOgImage, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -27,12 +28,13 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [products, categories, faqs, reviews, settings] = await Promise.all([
+  const [products, categories, faqs, reviews, settings, flashSale] = await Promise.all([
     listProducts(),
     listCategories(),
     listFaqs(),
     listReviews(),
     getSettings(),
+    getActiveFlashSale(),
   ]);
   const inStock = products.filter((p) => p.inStock);
   const featured = inStock.filter((p) => p.featured).slice(0, 4);
@@ -98,6 +100,12 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {flashSale && (
+        <div className="px-6 pt-10">
+          <FlashSaleBanner sale={flashSale} />
+        </div>
+      )}
 
       {/* ── How it works ── */}
       <section id="how" className="bg-forest text-cream scroll-mt-20">

@@ -336,6 +336,12 @@ export default function OrderDetailPage() {
                 <span className="text-muted">Subtotal</span>
                 <span className="text-ink">{gbp(order.subtotal)}</span>
               </div>
+              {order.discount ? (
+                <div className="flex justify-between text-[#2F7D4F]">
+                  <span>Coupon {order.couponCode ?? ""}</span>
+                  <span>−{gbp(order.discount)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span className="text-muted">Delivery</span>
                 <span className={order.deliveryFee === 0 ? "text-[#2F7D4F] font-medium" : "text-ink"}>

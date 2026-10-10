@@ -70,6 +70,7 @@ export async function POST(req: Request) {
     },
     deliverySlot: body.deliverySlot || undefined,
     paymentMethod: body.paymentMethod,
+    couponCode: typeof body.couponCode === "string" ? body.couponCode : undefined,
   });
 
   return NextResponse.json({ order }, { status: 201 });

@@ -20,7 +20,10 @@ import {
 import type {
   Category,
   Color,
+  ContactQuery,
+  Coupon,
   Faq,
+  FlashSale,
   Order,
   OrderStatus,
   Post,
@@ -35,6 +38,9 @@ interface LocalStore {
   products: Product[];
   categories: Category[];
   colors: Color[];
+  queries: ContactQuery[];
+  coupons: Coupon[];
+  flashSales: FlashSale[];
   faqs: Faq[];
   reviews: Review[];
   orders: Order[];
@@ -64,11 +70,22 @@ async function tryPersist(s: LocalStore): Promise<boolean> {
   }
 }
 
+/** Firestore rejects `undefined` document fields — drop them before .set(). */
+function stripUndefined<T extends object>(obj: T): T {
+  for (const k of Object.keys(obj)) {
+    if ((obj as Record<string, unknown>)[k] === undefined) delete (obj as Record<string, unknown>)[k];
+  }
+  return obj;
+}
+
 function freshLocal(): LocalStore {
   return {
     products: structuredClone(seedProducts),
     categories: structuredClone(seedCategories),
     colors: structuredClone(seedColors),
+    queries: [],
+    coupons: [],
+    flashSales: [],
     faqs: structuredClone(seedFaqs),
     reviews: structuredClone(seedReviews),
     orders: [],
@@ -490,12 +507,26 @@ export async function createOrder(input: {
   customer: Order["customer"];
   deliverySlot?: string;
   paymentMethod: Order["paymentMethod"];
+  couponCode?: string;
 }): Promise<Order> {
   try {
     const nowIso = new Date().toISOString();
     const subtotal = input.items.reduce((s, i) => s + i.price * i.qty, 0);
     const settings = await getSettings();
     const deliveryFee = subtotal >= settings.freeDeliveryThreshold || subtotal === 0 ? 0 : 29;
+    // Coupons are validated server-side — never trust the client's discount.
+    let discount = 0;
+    let couponCode: string | undefined;
+    let couponId: string | undefined;
+    if (input.couponCode?.trim()) {
+      const v = await validateCoupon(input.couponCode, subtotal);
+      if (v.valid && v.coupon) {
+        discount = v.discount;
+        couponCode = v.coupon.code;
+        couponId = v.coupon.id;
+      }
+    }
+    const total = Math.max(0, subtotal - discount) + deliveryFee;
     const f = db();
     if (f) {
       const counter = f.collection("meta").doc("counters");
@@ -513,7 +544,9 @@ export async function createOrder(input: {
         items: input.items,
         subtotal,
         deliveryFee,
-        total: subtotal + deliveryFee,
+        discount: discount || undefined,
+        couponCode,
+        total,
         customer: input.customer,
         deliverySlot: input.deliverySlot,
         paymentMethod: input.paymentMethod,
@@ -523,6 +556,7 @@ export async function createOrder(input: {
         timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
       };
       await f.collection("orders").doc(id).set(order);
+      if (couponId) await incrementCouponUse(couponId);
       return order;
     }
     return mutateLocal((s) => {
@@ -533,7 +567,9 @@ export async function createOrder(input: {
         items: input.items,
         subtotal,
         deliveryFee,
-        total: subtotal + deliveryFee,
+        discount: discount || undefined,
+        couponCode,
+        total,
         customer: input.customer,
         deliverySlot: input.deliverySlot,
         paymentMethod: input.paymentMethod,
@@ -543,6 +579,10 @@ export async function createOrder(input: {
         timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
       };
       s.orders.push(order);
+      if (couponId) {
+        const c = s.coupons.find((x) => x.id === couponId);
+        if (c) c.usedCount += 1;
+      }
       return order;
     });
 
@@ -679,7 +719,7 @@ export async function saveColor(input: ColorInput): Promise<Color> {
         createdAt: nowIso,
         updatedAt: nowIso,
       };
-      await col.doc(id).set(color);
+      await col.doc(id).set(stripUndefined(color));
       return color;
     }
     return mutateLocal((s) => {
@@ -720,6 +760,420 @@ export async function deleteColor(id: string): Promise<void> {
     }
     await mutateLocal((s) => {
       s.colors = s.colors.filter((c) => c.id !== id);
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- contact queries ---------- */
+
+export async function listQueries(): Promise<ContactQuery[]> {
+  return resilientRead(
+    "queries:all",
+    async (f) => {
+      const snap = await f.collection("queries").orderBy("createdAt", "desc").get();
+      return snap.docs.map((d) => d.data() as ContactQuery);
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.queries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    ORDER_CACHE_TTL_MS // queries are inbox-like; keep fresh
+  );
+}
+
+export async function createQuery(input: {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}): Promise<ContactQuery> {
+  try {
+    const nowIso = new Date().toISOString();
+    const q: ContactQuery = {
+      id: `qry-${Date.now()}`,
+      name: input.name.trim(),
+      email: input.email.trim(),
+      subject: input.subject.trim(),
+      message: input.message.trim(),
+      status: "new",
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    const phone = input.phone?.trim();
+    if (phone) q.phone = phone;
+    const f = db();
+    if (f) {
+      await f.collection("queries").doc(q.id).set(q);
+      return q;
+    }
+    return mutateLocal((s) => {
+      s.queries.push(q);
+      return q;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/** Admin: update status / reply. Setting a reply marks the query "replied". */
+export async function saveQuery(
+  id: string,
+  patch: Partial<Pick<ContactQuery, "status" | "reply">>
+): Promise<ContactQuery | null> {
+  try {
+    const nowIso = new Date().toISOString();
+    const f = db();
+    if (f) {
+      const ref = f.collection("queries").doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return null;
+      const update: Record<string, unknown> = { updatedAt: nowIso };
+      if (patch.status) update.status = patch.status;
+      if (patch.reply !== undefined) {
+        if (patch.reply.trim()) {
+          update.reply = patch.reply.trim();
+          update.repliedAt = nowIso;
+          update.status = "replied";
+        } else {
+          update.reply = FieldValue.delete();
+        }
+      }
+      await ref.set(update, { merge: true });
+      const fresh = await ref.get();
+      return fresh.data() as ContactQuery;
+    }
+    return mutateLocal((s) => {
+      const i = s.queries.findIndex((x) => x.id === id);
+      if (i < 0) return null;
+      const cur = s.queries[i];
+      if (patch.status) cur.status = patch.status;
+      if (patch.reply !== undefined) {
+        if (patch.reply.trim()) {
+          cur.reply = patch.reply.trim();
+          cur.repliedAt = nowIso;
+          cur.status = "replied";
+        } else {
+          delete cur.reply;
+        }
+      }
+      cur.updatedAt = nowIso;
+      return cur;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteQuery(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("queries").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.queries = s.queries.filter((x) => x.id !== id);
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- coupons ---------- */
+
+export async function listCoupons(): Promise<Coupon[]> {
+  return resilientRead(
+    "coupons:all",
+    async (f) => {
+      const snap = await f.collection("coupons").orderBy("createdAt", "desc").get();
+      return snap.docs.map((d) => d.data() as Coupon);
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.coupons].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  );
+}
+
+export async function saveCoupon(
+  input: Partial<Omit<Coupon, "minSubtotal" | "maxUses" | "startsAt" | "endsAt" | "value">> & {
+    code?: string;
+    value?: number;
+    minSubtotal?: number | ""; // "" clears the field
+    maxUses?: number | ""; // "" clears the field
+    startsAt?: string | ""; // "" clears the field
+    endsAt?: string | ""; // "" clears the field
+  }
+): Promise<Coupon> {
+  try {
+    const nowIso = new Date().toISOString();
+    const f = db();
+    if (f) {
+      const col = f.collection("coupons");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const existing = (await ref.get()).data() as Coupon | undefined;
+        const patch: Record<string, unknown> = { updatedAt: nowIso };
+        const cleared: string[] = [];
+        if (input.code !== undefined) patch.code = input.code.trim().toUpperCase();
+        for (const k of ["type", "value", "minSubtotal", "maxUses", "active", "startsAt", "endsAt"] as const) {
+          if (input[k] !== undefined) {
+            if (input[k] === "") {
+              patch[k] = FieldValue.delete();
+              cleared.push(k);
+            } else patch[k] = input[k];
+          }
+        }
+        await ref.set(patch, { merge: true });
+        const fresh = await ref.get();
+        const data = { ...(fresh.data() as Coupon) };
+        for (const k of cleared) delete (data as Record<string, unknown>)[k];
+        return data;
+      }
+      const coupon: Coupon = {
+        id: `cpn-${Date.now()}`,
+        code: (input.code ?? "").trim().toUpperCase(),
+        type: input.type === "fixed" ? "fixed" : "percent",
+        value: Math.max(0, Number(input.value) || 0),
+        minSubtotal: input.minSubtotal ? Number(input.minSubtotal) : undefined,
+        maxUses: input.maxUses ? Number(input.maxUses) : undefined,
+        usedCount: 0,
+        startsAt: input.startsAt || undefined,
+        endsAt: input.endsAt || undefined,
+        active: input.active !== false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      await col.doc(coupon.id).set(stripUndefined(coupon));
+      return coupon;
+    }
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.coupons.findIndex((c) => c.id === input.id);
+        if (i >= 0) {
+          const cur = { ...s.coupons[i] };
+          if (input.code !== undefined) cur.code = input.code.trim().toUpperCase();
+          if (input.type !== undefined) cur.type = input.type;
+          if (input.value !== undefined) cur.value = Number(input.value) || 0;
+          if (input.minSubtotal !== undefined) { if (input.minSubtotal) cur.minSubtotal = Number(input.minSubtotal); else delete cur.minSubtotal; }
+          if (input.maxUses !== undefined) { if (input.maxUses) cur.maxUses = Number(input.maxUses); else delete cur.maxUses; }
+          if (input.active !== undefined) cur.active = input.active;
+          if (input.startsAt !== undefined) { if (input.startsAt) cur.startsAt = input.startsAt as string; else delete cur.startsAt; }
+          if (input.endsAt !== undefined) { if (input.endsAt) cur.endsAt = input.endsAt as string; else delete cur.endsAt; }
+          cur.updatedAt = nowIso;
+          s.coupons[i] = cur;
+          return cur;
+        }
+      }
+      const coupon: Coupon = {
+        id: `cpn-${Date.now()}`,
+        code: (input.code ?? "").trim().toUpperCase(),
+        type: input.type === "fixed" ? "fixed" : "percent",
+        value: Math.max(0, Number(input.value) || 0),
+        minSubtotal: input.minSubtotal ? Number(input.minSubtotal) : undefined,
+        maxUses: input.maxUses ? Number(input.maxUses) : undefined,
+        usedCount: 0,
+        startsAt: (input.startsAt as string) || undefined,
+        endsAt: (input.endsAt as string) || undefined,
+        active: input.active !== false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      s.coupons.push(coupon);
+      return coupon;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteCoupon(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("coupons").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.coupons = s.coupons.filter((c) => c.id !== id);
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/** Validate a coupon code against the current basket subtotal (server-side). */
+export async function validateCoupon(
+  code: string,
+  subtotal: number
+): Promise<{ valid: boolean; coupon?: Coupon; discount: number; reason?: string }> {
+  const now = Date.now();
+  const find = async (): Promise<Coupon | undefined> => {
+    const f = db();
+    const wanted = code.trim().toUpperCase();
+    if (f) {
+      const q = await f.collection("coupons").where("code", "==", wanted).limit(1).get();
+      return q.empty ? undefined : (q.docs[0].data() as Coupon);
+    }
+    const s = await loadLocal();
+    return s.coupons.find((c) => c.code === wanted);
+  };
+  const coupon = await find();
+  if (!coupon) return { valid: false, discount: 0, reason: "That code isn't recognised." };
+  if (!coupon.active) return { valid: false, discount: 0, reason: "That code is no longer active." };
+  if (coupon.startsAt && Date.parse(coupon.startsAt) > now)
+    return { valid: false, discount: 0, reason: "That code isn't live yet." };
+  if (coupon.endsAt && Date.parse(coupon.endsAt) < now)
+    return { valid: false, discount: 0, reason: "That code has expired." };
+  if (coupon.maxUses && coupon.usedCount >= coupon.maxUses)
+    return { valid: false, discount: 0, reason: "That code has reached its usage limit." };
+  if (coupon.minSubtotal && subtotal < coupon.minSubtotal)
+    return {
+      valid: false,
+      discount: 0,
+      reason: `That code needs a minimum order of £${coupon.minSubtotal}.`,
+    };
+  const discount =
+    coupon.type === "percent"
+      ? Math.min(subtotal, Math.round((subtotal * Math.min(coupon.value, 90)) / 100))
+      : Math.min(subtotal, coupon.value);
+  return { valid: true, coupon, discount };
+}
+
+async function incrementCouponUse(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      const ref = f.collection("coupons").doc(id);
+      await ref.set(
+        { usedCount: FieldValue.increment(1), updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+      return;
+    }
+    await mutateLocal((s) => {
+      const c = s.coupons.find((x) => x.id === id);
+      if (c) c.usedCount += 1;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- flash sales ---------- */
+
+export async function listFlashSales(): Promise<FlashSale[]> {
+  return resilientRead(
+    "flashsales:all",
+    async (f) => {
+      const snap = await f.collection("flashSales").orderBy("createdAt", "desc").get();
+      return snap.docs.map((d) => d.data() as FlashSale);
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.flashSales].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  );
+}
+
+/** The banner currently live on the storefront, if any. */
+export async function getActiveFlashSale(): Promise<FlashSale | null> {
+  const all = await listFlashSales();
+  const now = Date.now();
+  return (
+    all.find(
+      (s) =>
+        s.active &&
+        (!s.startsAt || Date.parse(s.startsAt) <= now) &&
+        (!s.endsAt || Date.parse(s.endsAt) >= now)
+    ) ?? null
+  );
+}
+
+export async function saveFlashSale(input: Partial<FlashSale> & { title?: string }): Promise<FlashSale> {
+  try {
+    const nowIso = new Date().toISOString();
+    const f = db();
+    if (f) {
+      const col = f.collection("flashSales");
+      if (input.id) {
+        const ref = col.doc(input.id);
+        const patch: Record<string, unknown> = { updatedAt: nowIso };
+        for (const k of ["title", "subtitle", "imageUrl", "linkUrl", "linkLabel", "startsAt", "endsAt"] as const) {
+          if (input[k] !== undefined) patch[k] = input[k] === "" ? FieldValue.delete() : input[k];
+        }
+        if (input.active !== undefined) patch.active = input.active;
+        await ref.set(patch, { merge: true });
+        const fresh = await ref.get();
+        return fresh.data() as FlashSale;
+      }
+      const sale: FlashSale = {
+        id: `fls-${Date.now()}`,
+        title: (input.title ?? "").trim() || "Flash sale",
+        subtitle: (input.subtitle as string) || undefined,
+        imageUrl: (input.imageUrl as string) || undefined,
+        linkUrl: (input.linkUrl as string) || undefined,
+        linkLabel: (input.linkLabel as string) || undefined,
+        startsAt: (input.startsAt as string) || undefined,
+        endsAt: (input.endsAt as string) || undefined,
+        active: input.active !== false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      await col.doc(sale.id).set(stripUndefined(sale));
+      return sale;
+    }
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.flashSales.findIndex((x) => x.id === input.id);
+        if (i >= 0) {
+          const cur = { ...s.flashSales[i] };
+          for (const k of ["title", "subtitle", "imageUrl", "linkUrl", "linkLabel", "startsAt", "endsAt"] as const) {
+            const v = input[k];
+            if (v !== undefined) {
+              if (v) (cur as Record<string, unknown>)[k] = v;
+              else delete (cur as Record<string, unknown>)[k];
+            }
+          }
+          if (input.active !== undefined) cur.active = input.active;
+          cur.updatedAt = nowIso;
+          s.flashSales[i] = cur;
+          return cur;
+        }
+      }
+      const sale: FlashSale = {
+        id: `fls-${Date.now()}`,
+        title: (input.title ?? "").trim() || "Flash sale",
+        subtitle: (input.subtitle as string) || undefined,
+        imageUrl: (input.imageUrl as string) || undefined,
+        linkUrl: (input.linkUrl as string) || undefined,
+        linkLabel: (input.linkLabel as string) || undefined,
+        startsAt: (input.startsAt as string) || undefined,
+        endsAt: (input.endsAt as string) || undefined,
+        active: input.active !== false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      s.flashSales.push(sale);
+      return sale;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteFlashSale(id: string): Promise<void> {
+  try {
+    const f = db();
+    if (f) {
+      await f.collection("flashSales").doc(id).delete();
+      return;
+    }
+    await mutateLocal((s) => {
+      s.flashSales = s.flashSales.filter((x) => x.id !== id);
     });
   } finally {
     invalidateReadCache();

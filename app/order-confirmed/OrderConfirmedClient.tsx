@@ -94,6 +94,9 @@ export default function OrderConfirmedClient() {
               <div className="bg-forest text-cream rounded-3xl p-7 flex flex-col gap-1.5">
                 <span className="label-caps text-peach!">Due on delivery</span>
                 <span className="font-serif font-semibold text-[46px] leading-tight">{gbp(order.total)}.00</span>
+                {order.discount ? (
+                  <p className="text-mint text-sm">Includes {order.couponCode ? `coupon ${order.couponCode} ` : ""}(−{gbp(order.discount)}.00)</p>
+                ) : null}
                 <p className="text-mint text-sm leading-relaxed mt-1.5">
                   Please have payment ready for the driver. Accepted: cash, card machine, bank transfer.
                 </p>

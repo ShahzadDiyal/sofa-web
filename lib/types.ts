@@ -86,6 +86,8 @@ export interface Order {
   items: BasketItem[];
   subtotal: number;
   deliveryFee: number;
+  discount?: number; // coupon discount applied (GBP)
+  couponCode?: string; // coupon code used, if any
   total: number; // amount due on delivery (COD)
   customer: {
     name: string;
@@ -164,3 +166,58 @@ export const PAYMENT_METHOD_LABELS: Record<Order["paymentMethod"], string> = {
   card: "Card machine",
   bank_transfer: "Bank transfer",
 };
+
+/* Customer query from the contact page form (Admin → Queries). */
+export type QueryStatus = "new" | "read" | "replied";
+
+export interface ContactQuery {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+  status: QueryStatus;
+  reply?: string; // admin's reply (shown in admin; emailed when configured)
+  repliedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const QUERY_STATUS_LABELS: Record<QueryStatus, string> = {
+  new: "New",
+  read: "Read",
+  replied: "Replied",
+};
+
+/* Discount coupon (Admin → Coupons). */
+export interface Coupon {
+  id: string;
+  code: string; // uppercase, e.g. "WELCOME10"
+  type: "percent" | "fixed";
+  value: number; // percent (1-90) or fixed GBP amount
+  minSubtotal?: number; // minimum basket subtotal in GBP
+  maxUses?: number; // total redemptions allowed
+  usedCount: number;
+  startsAt?: string; // ISO, optional
+  endsAt?: string; // ISO, optional
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* Flash sale banner (Admin → Flash sales). The currently-active one shows
+   as a prominent banner on the homepage. */
+export interface FlashSale {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl?: string; // banner image (device upload → Cloudinary)
+  linkUrl?: string; // e.g. "/sofas?sale=1"
+  linkLabel?: string; // CTA text, e.g. "Shop the sale"
+  startsAt?: string; // ISO, optional
+  endsAt?: string; // ISO, optional
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

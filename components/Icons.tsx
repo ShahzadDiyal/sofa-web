@@ -194,3 +194,14 @@ export const IconArticle = (p: P) => (
     <path d="M10 6h8v4h-8V6Z" />
   </svg>
 );
+export const IconTicket = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5Z" />
+    <path d="M13 5v2m0 4v2m0 4v2" strokeDasharray="2 2" />
+  </svg>
+);
+export const IconBolt = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z" />
+  </svg>
+);
