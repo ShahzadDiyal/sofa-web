@@ -1,13 +1,15 @@
-/* Unified data access layer.
-   - When Firebase Admin credentials are configured (FIREBASE_PROJECT_ID etc.),
-     everything reads/writes real Firestore collections.
+/* Unified data access layer — MySQL backend.
+   - When DATABASE_URL is set, everything reads/writes the MySQL database
+     (Hostinger live DB, or a local/dev MySQL).
    - Otherwise a local seeded store is used (persisted to data/store.json so
-     admin edits survive restarts). The API and pages never need to care. */
+     admin edits survive restarts). The API and pages never need to care.
+   Reads go through a short-lived cache; on MySQL failure they fall back to
+   the local seed instead of crashing the storefront. */
 
 import { promises as fs } from "fs";
 import path from "path";
-import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "./firebase-admin";
+import { mysqlPool, parseJson, toJson, toBool, toNum, nullIfUndef } from "./mysql";
+import type { Pool } from "mysql2/promise";
 import {
   seedCategories,
   seedColors,
@@ -51,7 +53,8 @@ interface LocalStore {
   posts: Post[];
 }
 
-/* Local JSON store (dev/demo fallback when Firebase Admin is not configured). */
+/* Local JSON store (fallback when DATABASE_URL is not set, or MySQL is
+   unreachable on reads). */
 let writeChain: Promise<void> = Promise.resolve();
 /* In-memory copy used when the filesystem is read-only (e.g. Vercel /var/task):
    the app keeps serving the seeded catalog instead of throwing EROFS. */
@@ -72,7 +75,7 @@ async function tryPersist(s: LocalStore): Promise<boolean> {
   }
 }
 
-/** Firestore rejects `undefined` document fields — drop them before .set(). */
+/** Drop `undefined` fields before persisting. */
 function stripUndefined<T extends object>(obj: T): T {
   for (const k of Object.keys(obj)) {
     if ((obj as Record<string, unknown>)[k] === undefined) delete (obj as Record<string, unknown>)[k];
@@ -163,20 +166,13 @@ async function loadLocal(): Promise<LocalStore> {
   return readLocalFile();
 }
 
-/** Raw local store — used by the one-time Firestore migration. */
+/** Raw local store — used by one-off tooling. */
 export async function getLocalStore(): Promise<LocalStore> {
   return readLocalFile();
 }
 
-const db = () => adminDb();
-
 /* ---------- read cache ---------- */
-/* Short-lived in-memory cache for Firestore reads. A production build
-   prerenders ~200 pages; without this, every page re-reads the same
-   collections and a handful of builds can exhaust the Firestore free
-   read quota (50k/day). With the cache, one build costs a few hundred
-   reads instead of ~10k. Mutations invalidate it (see below). */
-/* Catalog content (products, categories, FAQs, posts, reviews, settings) changes
+/* Short-lived in-memory cache for MySQL reads. Catalog content changes
    rarely, and every admin mutation invalidates the cache immediately — so it
    can be cached for 10 minutes. Orders stay on a short TTL so the admin panel
    and order lookups always see fresh data. Note: the cache is per server
@@ -185,53 +181,49 @@ const READ_CACHE_TTL_MS = 600_000; // 10 minutes
 const ORDER_CACHE_TTL_MS = 60_000; // 1 minute
 const readCache = new Map<string, { at: number; value: unknown }>();
 
-type FirestoreDb = NonNullable<ReturnType<typeof adminDb>>;
-
-/* Last-known-good snapshots: when Firestore is reachable we remember what it
-   returned, so a later outage (quota, network) serves real data instead of
-   the seed catalog. Per-instance memory only. */
-const lastGood = new Map<string, unknown>();
-
 /**
  * Resilient read pipeline:
- *  1. short-lived cache (60s) — also slashes build-time reads ~30x
- *  2. Firestore (when configured)
- *  3. last-known-good snapshot from this instance
- *  4. local seeded store (never throws, even on read-only filesystems)
- * Firestore errors are logged, never thrown to pages.
+ *  1. short-lived cache
+ *  2. MySQL (when DATABASE_URL is set)
+ *  3. local seeded store (never throws)
+ * MySQL errors are logged, never thrown to pages.
  */
 async function resilientRead<T>(
   key: string,
-  fromFirestore: (f: FirestoreDb) => Promise<T>,
+  fromMysql: () => Promise<T>,
   fromLocal: () => Promise<T>,
   ttlMs: number = READ_CACHE_TTL_MS
 ): Promise<T> {
   const hit = readCache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return structuredClone(hit.value) as T;
-  const f = db();
-  if (f) {
+  const pool = mysqlPool();
+  if (pool) {
     try {
-      const value = await fromFirestore(f);
+      const value = await fromMysql();
       readCache.set(key, { at: Date.now(), value });
-      lastGood.set(key, value);
       return structuredClone(value) as T;
     } catch (err) {
       console.warn(
-        `[db] Firestore read "${key}" failed; serving last-known data.`,
+        `[db] MySQL read "${key}" failed; serving local data.`,
         (err as Error)?.message ?? err
       );
     }
   }
-  if (lastGood.has(key)) return structuredClone(lastGood.get(key)) as T;
   const value = await fromLocal();
   readCache.set(key, { at: Date.now(), value });
   return structuredClone(value) as T;
 }
 
-/** Clear the read cache — called after every mutation. Exported so the
-    one-time admin migration route can also invalidate. */
+/** Clear the read cache — called after every mutation. */
 export function invalidateReadCache(): void {
   readCache.clear();
+}
+
+/** Throw a clear error when a write is attempted without a database. */
+function requirePool(): Pool {
+  const pool = mysqlPool();
+  if (!pool) throw new Error("MySQL is not configured (DATABASE_URL).");
+  return pool;
 }
 
 /* ---------- helpers ---------- */
@@ -250,15 +242,248 @@ function uniqueSlug(base: string, taken: Set<string>): string {
   return s;
 }
 
+/** INSERT … ON DUPLICATE KEY UPDATE for a full row object. */
+async function upsertRow(table: string, row: Record<string, unknown>): Promise<void> {
+  const pool = requirePool();
+  const cols = Object.keys(row);
+  const placeholders = cols.map(() => "?").join(",");
+  const updates = cols.map((c) => `\`${c}\` = VALUES(\`${c}\`)`).join(",");
+  await pool.query(
+    `INSERT INTO \`${table}\` (${cols.map((c) => `\`${c}\``).join(",")}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`,
+    cols.map((c) => row[c])
+  );
+}
+
+async function deleteRow(table: string, idCol: string, id: string): Promise<void> {
+  const pool = requirePool();
+  await pool.query(`DELETE FROM \`${table}\` WHERE \`${idCol}\` = ?`, [id]);
+}
+
+/* ---------- row mappers ---------- */
+
+function rowToProduct(r: Record<string, unknown>): Product {
+  return {
+    id: String(r.id),
+    slug: String(r.slug ?? ""),
+    name: String(r.name ?? ""),
+    sub: (r.sub as string) ?? "",
+    description: (r.description as string) ?? "",
+    price: toNum(r.price),
+    wasPrice: r.wasPrice == null ? undefined : toNum(r.wasPrice),
+    category: (r.category as string) ?? "",
+    type: ((r.type as string) ?? "three") as Product["type"],
+    fabric: (r.fabric as string) ?? "",
+    fabricName: (r.fabricName as string) ?? undefined,
+    bg: (r.bg as string) ?? "",
+    accent: (r.accent as string) ?? "",
+    tag: (r.tag as string) ?? undefined,
+    imageUrl: (r.imageUrl as string) ?? undefined,
+    colorImages: parseJson<Record<string, string> | undefined>(r.colorImages, undefined),
+    sku: (r.sku as string) ?? undefined,
+    seats: r.seats == null ? undefined : toNum(r.seats),
+    fabricType: (r.fabricType as string) ?? undefined,
+    colourName: (r.colourName as string) ?? undefined,
+    features: parseJson<string[] | undefined>(r.features, undefined),
+    rating: r.rating == null ? undefined : toNum(r.rating),
+    reviewCount: r.reviewCount == null ? undefined : toNum(r.reviewCount),
+    inStock: toBool(r.inStock),
+    featured: toBool(r.featured),
+    details: parseJson<string[] | undefined>(r.details, undefined),
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function productToRow(p: Product): Record<string, unknown> {
+  return {
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    sub: nullIfUndef(p.sub),
+    description: nullIfUndef(p.description),
+    price: p.price,
+    wasPrice: nullIfUndef(p.wasPrice),
+    category: nullIfUndef(p.category),
+    type: nullIfUndef(p.type),
+    fabric: nullIfUndef(p.fabric),
+    fabricName: nullIfUndef(p.fabricName),
+    bg: nullIfUndef(p.bg),
+    accent: nullIfUndef(p.accent),
+    tag: nullIfUndef(p.tag),
+    imageUrl: nullIfUndef(p.imageUrl),
+    colorImages: toJson(p.colorImages),
+    sku: nullIfUndef(p.sku),
+    seats: nullIfUndef(p.seats),
+    fabricType: nullIfUndef(p.fabricType),
+    colourName: nullIfUndef(p.colourName),
+    features: toJson(p.features),
+    rating: nullIfUndef(p.rating),
+    reviewCount: nullIfUndef(p.reviewCount),
+    inStock: p.inStock ? 1 : 0,
+    featured: p.featured ? 1 : 0,
+    details: toJson(p.details),
+    createdAt: nullIfUndef(p.createdAt),
+    updatedAt: nullIfUndef(p.updatedAt),
+  };
+}
+
+function rowToCategory(r: Record<string, unknown>): Category {
+  return {
+    id: String(r.id),
+    slug: String(r.slug ?? ""),
+    name: String(r.name ?? ""),
+    type: ((r.type as string) ?? "three") as Category["type"],
+    fabric: (r.fabric as string) ?? "",
+    bg: (r.bg as string) ?? "",
+    blurb: (r.blurb as string) ?? undefined,
+    menu: (r.menu as string) ?? undefined,
+    imageUrl: (r.imageUrl as string) ?? undefined,
+  };
+}
+
+function rowToColor(r: Record<string, unknown>): Color {
+  return {
+    id: String(r.id),
+    name: String(r.name ?? ""),
+    hex: (r.hex as string) ?? undefined,
+    imageUrl: (r.imageUrl as string) ?? undefined,
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function rowToQuery(r: Record<string, unknown>): ContactQuery {
+  return {
+    id: String(r.id),
+    name: String(r.name ?? ""),
+    email: String(r.email ?? ""),
+    phone: (r.phone as string) ?? undefined,
+    subject: (r.subject as string) ?? "",
+    message: (r.message as string) ?? "",
+    status: ((r.status as string) ?? "new") as ContactQuery["status"],
+    reply: (r.reply as string) ?? undefined,
+    repliedAt: (r.repliedAt as string) ?? undefined,
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function rowToCoupon(r: Record<string, unknown>): Coupon {
+  return {
+    id: String(r.id),
+    code: String(r.code ?? ""),
+    type: r.type === "fixed" ? "fixed" : "percent",
+    value: toNum(r.value),
+    minSubtotal: r.minSubtotal == null ? undefined : toNum(r.minSubtotal),
+    maxUses: r.maxUses == null ? undefined : toNum(r.maxUses),
+    usedCount: toNum(r.usedCount),
+    startsAt: (r.startsAt as string) ?? undefined,
+    endsAt: (r.endsAt as string) ?? undefined,
+    active: toBool(r.active),
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function rowToFlashSale(r: Record<string, unknown>): FlashSale {
+  return {
+    id: String(r.id),
+    title: String(r.title ?? ""),
+    subtitle: (r.subtitle as string) ?? undefined,
+    imageUrl: (r.imageUrl as string) ?? undefined,
+    linkUrl: (r.linkUrl as string) ?? undefined,
+    linkLabel: (r.linkLabel as string) ?? undefined,
+    startsAt: (r.startsAt as string) ?? undefined,
+    endsAt: (r.endsAt as string) ?? undefined,
+    active: toBool(r.active),
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function rowToProductReview(r: Record<string, unknown>): ProductReview {
+  return {
+    id: String(r.id),
+    productId: String(r.productId ?? ""),
+    productSlug: (r.productSlug as string) ?? "",
+    productName: (r.productName as string) ?? "",
+    author: String(r.author ?? ""),
+    location: (r.location as string) ?? undefined,
+    rating: toNum(r.rating, 5),
+    title: (r.title as string) ?? undefined,
+    body: (r.body as string) ?? "",
+    verified: toBool(r.verified) || undefined,
+    createdAt: (r.createdAt as string) ?? "",
+  };
+}
+
+function rowToPost(r: Record<string, unknown>): Post {
+  return {
+    id: String(r.id),
+    slug: String(r.slug ?? ""),
+    title: String(r.title ?? ""),
+    excerpt: (r.excerpt as string) ?? "",
+    content: (r.content as string) ?? "",
+    coverColor: (r.coverColor as string) ?? undefined,
+    tags: parseJson<string[]>(r.tags, []),
+    status: r.status === "draft" ? "draft" : "published",
+    metaTitle: (r.metaTitle as string) ?? undefined,
+    metaDescription: (r.metaDescription as string) ?? undefined,
+    publishedAt: (r.publishedAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+    readingMinutes: toNum(r.readingMinutes, 1),
+    authorName: (r.authorName as string) ?? "Sofora Team",
+    faqJson: parseJson<Post["faqJson"]>(r.faqJson, undefined),
+  };
+}
+
+function rowToReview(r: Record<string, unknown>): Review {
+  return {
+    id: String(r.id),
+    quote: (r.quote as string) ?? "",
+    author: (r.author as string) ?? "",
+    location: (r.location as string) ?? "",
+    rating: toNum(r.rating, 5),
+    order: toNum(r.order),
+  };
+}
+
+function rowToOrder(r: Record<string, unknown>): Order {
+  return {
+    id: String(r.id),
+    number: String(r.number ?? ""),
+    publicToken: String(r.publicToken ?? ""),
+    items: parseJson<Order["items"]>(r.items, []),
+    subtotal: toNum(r.subtotal),
+    deliveryFee: toNum(r.deliveryFee),
+    discount: r.discount == null ? undefined : toNum(r.discount),
+    couponCode: (r.couponCode as string) ?? undefined,
+    total: toNum(r.total),
+    customer: parseJson<Order["customer"]>(r.customer, {
+      name: "",
+      phone: "",
+      address: "",
+      city: "",
+      postcode: "",
+    }),
+    deliverySlot: (r.deliverySlot as string) ?? undefined,
+    paymentMethod: ((r.paymentMethod as string) ?? "cash") as Order["paymentMethod"],
+    status: ((r.status as string) ?? "new") as Order["status"],
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+    timeline: parseJson<Order["timeline"]>(r.timeline, []),
+  };
+}
+
 /* ---------- products ---------- */
 
 export async function listProducts(): Promise<Product[]> {
   return resilientRead(
     "products:all",
-    async (f) => {
-        const snap = await f.collection("products").orderBy("createdAt", "desc").get();
-        return snap.docs.map((d) => d.data() as Product);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM products ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToProduct);
     },
     async () => {
       const s = await loadLocal();
@@ -270,12 +495,14 @@ export async function listProducts(): Promise<Product[]> {
 export async function getProduct(slugOrId: string): Promise<Product | null> {
   return resilientRead(
     `product:${slugOrId}`,
-    async (f) => {
-        const byId = await f.collection("products").doc(slugOrId).get();
-        if (byId.exists) return byId.data() as Product;
-        const q = await f.collection("products").where("slug", "==", slugOrId).limit(1).get();
-        return q.empty ? null : (q.docs[0].data() as Product);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1", [
+        slugOrId,
+        slugOrId,
+      ]);
+      const list = rows as Record<string, unknown>[];
+      return list.length ? rowToProduct(list[0]) : null;
     },
     async () => {
       const s = await loadLocal();
@@ -286,38 +513,40 @@ export async function getProduct(slugOrId: string): Promise<Product | null> {
 
 export async function saveProduct(input: Partial<Product> & { name: string }): Promise<Product> {
   try {
-    const f = db();
     const nowIso = new Date().toISOString();
-    if (f) {
-      const col = f.collection("products");
+    const pool = mysqlPool();
+    if (pool) {
+      let merged: Product;
       if (input.id) {
-        const ref = col.doc(input.id);
-        const existing = (await ref.get()).data() as Product | undefined;
-        const merged: Product = {
-          ...(existing as Product),
-          ...input,
-          slug: input.slug || existing?.slug || slugify(input.name),
+        const [rows] = await pool.query("SELECT * FROM products WHERE id = ? LIMIT 1", [input.id]);
+        const existing = (rows as Record<string, unknown>[])[0];
+        merged = {
+          ...(existing ? rowToProduct(existing) : {}),
+          ...stripUndefined({ ...input }),
+          slug: input.slug || (existing ? rowToProduct(existing).slug : "") || slugify(input.name),
           updatedAt: nowIso,
         } as Product;
-        // Explicit nulls clear a field (e.g. removing a photo).
+        // Explicit nulls clear a field (e.g. removing a photo) → NULL in MySQL.
         for (const [k, v] of Object.entries(input)) {
-          if (v === null) (merged as unknown as Record<string, unknown>)[k] = FieldValue.delete();
+          if (v === null) (merged as unknown as Record<string, unknown>)[k] = null;
         }
-        await ref.set(merged, { merge: true });
-        for (const [k, v] of Object.entries(input)) {
-          if (v === null) delete (merged as unknown as Record<string, unknown>)[k];
+        if (!merged.id) merged.id = input.id;
+        if (!merged.createdAt) merged.createdAt = nowIso;
+        await upsertRow("products", productToRow(merged));
+        // Return with nulls stripped back to undefined, like the old API.
+        const out = { ...merged };
+        for (const [k, v] of Object.entries(out)) {
+          if (v === null) delete (out as unknown as Record<string, unknown>)[k];
         }
-        return merged;
-        await ref.set(merged, { merge: true });
-        return merged;
+        return out as Product;
       }
-      // Fresh read for slug uniqueness (bypass the 60s read cache).
+      // Fresh read for slug uniqueness (bypass the read cache).
       invalidateReadCache();
-      const all = await listProducts();
-      const id = `prod-${Date.now()}`;
+      const [slugRows] = await pool.query("SELECT slug FROM products");
+      const taken = new Set((slugRows as { slug: string }[]).map((r) => r.slug));
       const product: Product = {
-        id,
-        slug: uniqueSlug(slugify(input.name), new Set(all.map((p) => p.slug))),
+        id: `prod-${Date.now()}`,
+        slug: uniqueSlug(slugify(input.name), taken),
         sub: "",
         description: "",
         price: 0,
@@ -329,9 +558,9 @@ export async function saveProduct(input: Partial<Product> & { name: string }): P
         inStock: true,
         createdAt: nowIso,
         updatedAt: nowIso,
-        ...input,
+        ...stripUndefined({ ...input }),
       } as Product;
-      await col.doc(id).set(product);
+      await upsertRow("products", productToRow(product));
       return product;
     }
     return mutateLocal((s) => {
@@ -361,7 +590,6 @@ export async function saveProduct(input: Partial<Product> & { name: string }): P
       s.products.push(product);
       return product;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -369,34 +597,28 @@ export async function saveProduct(input: Partial<Product> & { name: string }): P
 
 export async function deleteProduct(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("products").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("products", "id", id);
       return;
     }
     await mutateLocal((s) => {
       s.products = s.products.filter((p) => p.id !== id);
     });
-
   } finally {
     invalidateReadCache();
   }
 }
 
+/* ---------- categories ---------- */
+
 export async function listCategories(): Promise<Category[]> {
   return resilientRead(
     "categories:all",
-    async (f) => {
-        const snap = await f.collection("categories").get();
-        if (snap.empty) {
-          // first run: seed categories
-          const batch = f.batch();
-          for (const c of seedCategories) batch.set(f.collection("categories").doc(c.id), c);
-          await batch.commit();
-          return seedCategories;
-        }
-        return snap.docs.map((d) => d.data() as Category);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM categories");
+      return (rows as Record<string, unknown>[]).map(rowToCategory);
     },
     async () => {
       const s = await loadLocal();
@@ -407,40 +629,73 @@ export async function listCategories(): Promise<Category[]> {
 
 export async function saveCategory(input: Partial<Category> & { name: string }): Promise<Category> {
   try {
-    const f = db();
-    if (f) {
-      const col = f.collection("categories");
+    const pool = mysqlPool();
+    if (pool) {
       if (input.id) {
-        const ref = col.doc(input.id);
-        const existing = (await ref.get()).data() as Category | undefined;
-        const merged = { ...(existing as Category), ...input } as Category;
-        // Explicit nulls clear a field (e.g. removing a photo).
+        const [rows] = await pool.query("SELECT * FROM categories WHERE id = ? LIMIT 1", [input.id]);
+        const existing = (rows as Record<string, unknown>[])[0];
+        const merged: Category = {
+          ...(existing ? rowToCategory(existing) : {}),
+          ...stripUndefined({ ...input }),
+        } as Category;
         for (const [k, v] of Object.entries(input)) {
-          if (v === null) (merged as unknown as Record<string, unknown>)[k] = FieldValue.delete();
+          if (v === null) (merged as unknown as Record<string, unknown>)[k] = null;
         }
-        await ref.set(merged, { merge: true });
-        for (const [k, v] of Object.entries(input)) {
-          if (v === null) delete (merged as unknown as Record<string, unknown>)[k];
+        if (!merged.id) merged.id = input.id;
+        await upsertRow("categories", {
+          id: merged.id,
+          slug: nullIfUndef(merged.slug),
+          name: merged.name,
+          type: nullIfUndef(merged.type),
+          fabric: nullIfUndef(merged.fabric),
+          bg: nullIfUndef(merged.bg),
+          blurb: nullIfUndef(merged.blurb),
+          menu: nullIfUndef(merged.menu),
+          imageUrl: nullIfUndef(merged.imageUrl),
+        });
+        const out = { ...merged };
+        for (const [k, v] of Object.entries(out)) {
+          if (v === null) delete (out as unknown as Record<string, unknown>)[k];
         }
-        return merged;
+        return out as Category;
       }
-      const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-      // Fresh read for slug uniqueness (bypass the 60s read cache).
+      const slugBase = slugify(input.slug || input.name);
+      const [slugRows] = await pool.query("SELECT id, slug FROM categories WHERE slug LIKE ?", [
+        `${slugBase}%`,
+      ]);
+      const bySlug = new Map(
+        (slugRows as { id: string; slug: string }[]).map((r) => [r.slug, r])
+      );
+      // If the slug is taken, return the existing category (same as local mode).
+      if (input.slug && bySlug.has(input.slug)) {
+        const [rows] = await pool.query("SELECT * FROM categories WHERE slug = ? LIMIT 1", [
+          input.slug,
+        ]);
+        return rowToCategory((rows as Record<string, unknown>[])[0]);
+      }
       invalidateReadCache();
-      const all = await listCategories();
-      const taken = new Set(all.map((c) => c.slug));
-      let slug = slugBase;
-      let i = 2;
-      while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+      const [allSlugs] = await pool.query("SELECT slug FROM categories");
+      const taken = new Set((allSlugs as { slug: string }[]).map((r) => r.slug));
+      const slug = uniqueSlug(slugBase, taken);
       const category: Category = {
         id: `cat-${slug}`,
         slug,
         type: "three",
         fabric: "#D8CBB4",
         bg: "#EFE8DC",
-        ...input,
+        ...stripUndefined({ ...input }),
       } as Category;
-      await col.doc(category.id).set(category);
+      await upsertRow("categories", {
+        id: category.id,
+        slug: category.slug,
+        name: category.name,
+        type: nullIfUndef(category.type),
+        fabric: nullIfUndef(category.fabric),
+        bg: nullIfUndef(category.bg),
+        blurb: nullIfUndef(category.blurb),
+        menu: nullIfUndef(category.menu),
+        imageUrl: nullIfUndef(category.imageUrl),
+      });
       return category;
     }
     return mutateLocal((s) => {
@@ -454,11 +709,9 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
       if (input.slug && s.categories.some((c) => c.slug === input.slug)) {
         return s.categories.find((c) => c.slug === input.slug)!;
       }
-      const slugBase = (input.slug || input.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const slugBase = slugify(input.slug || input.name);
       const taken = new Set(s.categories.map((c) => c.slug));
-      let slug = slugBase;
-      let i = 2;
-      while (taken.has(slug)) slug = `${slugBase}-${i++}`;
+      const slug = uniqueSlug(slugBase, taken);
       const category: Category = {
         id: `cat-${slug}`,
         slug,
@@ -470,7 +723,6 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
       s.categories.push(category);
       return category;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -478,15 +730,14 @@ export async function saveCategory(input: Partial<Category> & { name: string }):
 
 export async function deleteCategory(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("categories").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("categories", "id", id);
       return;
     }
     await mutateLocal((s) => {
       s.categories = s.categories.filter((c) => c.id !== id);
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -497,10 +748,10 @@ export async function deleteCategory(id: string): Promise<void> {
 export async function listOrders(): Promise<Order[]> {
   return resilientRead(
     "orders:all",
-    async (f) => {
-        const snap = await f.collection("orders").orderBy("createdAt", "desc").get();
-        return snap.docs.map((d) => d.data() as Order);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM orders ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToOrder);
     },
     async () => {
       const s = await loadLocal();
@@ -513,12 +764,14 @@ export async function listOrders(): Promise<Order[]> {
 export async function getOrder(idOrNumber: string): Promise<Order | null> {
   return resilientRead(
     `order:${idOrNumber}`,
-    async (f) => {
-        const byId = await f.collection("orders").doc(idOrNumber).get();
-        if (byId.exists) return byId.data() as Order;
-        const q = await f.collection("orders").where("number", "==", idOrNumber.toUpperCase()).limit(1).get();
-        return q.empty ? null : (q.docs[0].data() as Order);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query(
+        "SELECT * FROM orders WHERE id = ? OR number = ? LIMIT 1",
+        [idOrNumber, idOrNumber.toUpperCase()]
+      );
+      const list = rows as Record<string, unknown>[];
+      return list.length ? rowToOrder(list[0]) : null;
     },
     async () => {
       const s = await loadLocal();
@@ -528,6 +781,18 @@ export async function getOrder(idOrNumber: string): Promise<Order | null> {
     },
     ORDER_CACHE_TTL_MS
   );
+}
+
+/** Atomically take the next order number (SOF-1024, …). */
+async function nextOrderSeq(pool: Pool): Promise<number> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query("UPDATE counters SET value = LAST_INSERT_ID(value + 1) WHERE id = 'orderSeq'");
+    const [rows] = await conn.query("SELECT LAST_INSERT_ID() AS seq");
+    return Number((rows as { seq: number }[])[0].seq);
+  } finally {
+    conn.release();
+  }
 }
 
 export async function createOrder(input: {
@@ -555,18 +820,11 @@ export async function createOrder(input: {
       }
     }
     const total = Math.max(0, subtotal - discount) + deliveryFee;
-    const f = db();
-    if (f) {
-      const counter = f.collection("meta").doc("counters");
-      const seq = await f.runTransaction(async (tx) => {
-        const snap = await tx.get(counter);
-        const next = ((snap.data()?.orderSeq as number) || 1001);
-        tx.set(counter, { orderSeq: next + 1 }, { merge: true });
-        return next;
-      });
-      const id = `ord-${Date.now()}`;
+    const pool = mysqlPool();
+    if (pool) {
+      const seq = await nextOrderSeq(pool);
       const order: Order = {
-        id,
+        id: `ord-${Date.now()}`,
         number: `SOF-${seq}`,
         publicToken: crypto.randomUUID(),
         items: input.items,
@@ -583,7 +841,24 @@ export async function createOrder(input: {
         updatedAt: nowIso,
         timeline: [{ status: "new", at: nowIso, note: "Order placed online — pay on delivery" }],
       };
-      await f.collection("orders").doc(id).set(order);
+      await upsertRow("orders", {
+        id: order.id,
+        number: order.number,
+        publicToken: order.publicToken,
+        items: toJson(order.items),
+        subtotal: order.subtotal,
+        deliveryFee: order.deliveryFee,
+        discount: nullIfUndef(order.discount),
+        couponCode: nullIfUndef(order.couponCode),
+        total: order.total,
+        customer: toJson(order.customer),
+        deliverySlot: nullIfUndef(order.deliverySlot),
+        paymentMethod: order.paymentMethod,
+        status: order.status,
+        timeline: toJson(order.timeline),
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      });
       if (couponId) await incrementCouponUse(couponId);
       return order;
     }
@@ -613,7 +888,6 @@ export async function createOrder(input: {
       }
       return order;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -626,16 +900,21 @@ export async function updateOrderStatus(
 ): Promise<Order | null> {
   try {
     const nowIso = new Date().toISOString();
-    const f = db();
-    if (f) {
-      const ref = f.collection("orders").doc(id);
-      const snap = await ref.get();
-      if (!snap.exists) return null;
-      const order = snap.data() as Order;
+    const pool = mysqlPool();
+    if (pool) {
+      const [rows] = await pool.query("SELECT * FROM orders WHERE id = ? LIMIT 1", [id]);
+      const list = rows as Record<string, unknown>[];
+      if (!list.length) return null;
+      const order = rowToOrder(list[0]);
       order.status = status;
       order.updatedAt = nowIso;
       order.timeline.push({ status, at: nowIso, note });
-      await ref.set(order);
+      await pool.query("UPDATE orders SET status = ?, updatedAt = ?, timeline = ? WHERE id = ?", [
+        status,
+        nowIso,
+        toJson(order.timeline),
+        id,
+      ]);
       return order;
     }
     return mutateLocal((s) => {
@@ -646,7 +925,6 @@ export async function updateOrderStatus(
       order.timeline.push({ status, at: nowIso, note });
       return order;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -657,16 +935,15 @@ export async function updateOrderStatus(
 export async function listFaqs(): Promise<Faq[]> {
   return resilientRead(
     "faqs:all",
-    async (f) => {
-        const snap = await f.collection("faqs").orderBy("order").get();
-        if (snap.empty) {
-          const batch = f.batch();
-          for (const q of seedFaqs) batch.set(f.collection("faqs").doc(q.id), q);
-          await batch.commit();
-          return seedFaqs;
-        }
-        return snap.docs.map((d) => d.data() as Faq);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM faqs ORDER BY `order` ASC");
+      return (rows as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id),
+        q: String(r.q ?? ""),
+        a: String(r.a ?? ""),
+        order: toNum(r.order),
+      }));
     },
     async () => {
       const s = await loadLocal();
@@ -677,18 +954,23 @@ export async function listFaqs(): Promise<Faq[]> {
 
 export async function saveFaqs(faqs: Faq[]): Promise<Faq[]> {
   try {
-    const f = db();
-    if (f) {
-      const batch = f.batch();
-      for (const q of faqs) batch.set(f.collection("faqs").doc(q.id), q, { merge: true });
-      await batch.commit();
+    const pool = mysqlPool();
+    if (pool) {
+      await pool.query("DELETE FROM faqs");
+      for (const q of faqs) {
+        await upsertRow("faqs", {
+          id: q.id,
+          q: q.q,
+          a: q.a,
+          order: q.order,
+        });
+      }
       return faqs;
     }
     return mutateLocal((s) => {
       s.faqs = faqs;
       return faqs;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -699,15 +981,10 @@ export async function saveFaqs(faqs: Faq[]): Promise<Faq[]> {
 export async function listColors(): Promise<Color[]> {
   return resilientRead(
     "colors:all",
-    async (f) => {
-      const snap = await f.collection("colors").orderBy("name").get();
-      if (snap.empty) {
-        const batch = f.batch();
-        for (const c of seedColors) batch.set(f.collection("colors").doc(c.id), c);
-        await batch.commit();
-        return seedColors;
-      }
-      return snap.docs.map((d) => d.data() as Color);
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM colors ORDER BY name ASC");
+      return (rows as Record<string, unknown>[]).map(rowToColor);
     },
     async () => {
       const s = await loadLocal();
@@ -723,31 +1000,52 @@ type ColorInput = Partial<Omit<Color, "hex" | "imageUrl">> & {
 
 export async function saveColor(input: ColorInput): Promise<Color> {
   try {
-    const f = db();
     const nowIso = new Date().toISOString();
-    if (f) {
-      const col = f.collection("colors");
+    const pool = mysqlPool();
+    if (pool) {
       if (input.id) {
-        const ref = col.doc(input.id);
-        const existing = (await ref.get()).data() as Color | undefined;
-        const patch: Record<string, unknown> = { updatedAt: nowIso };
-        if (input.name !== undefined) patch.name = input.name.trim() || existing?.name || "Unnamed";
+        const [rows] = await pool.query("SELECT * FROM colors WHERE id = ? LIMIT 1", [input.id]);
+        const list = rows as Record<string, unknown>[];
+        const existing = list.length ? rowToColor(list[0]) : undefined;
+        const name =
+          input.name !== undefined ? input.name.trim() || existing?.name || "Unnamed" : existing?.name || "Unnamed";
         // null explicitly clears a field; undefined leaves it untouched.
-        if (input.hex !== undefined) patch.hex = input.hex || FieldValue.delete();
-        if (input.imageUrl !== undefined) patch.imageUrl = input.imageUrl || FieldValue.delete();
-        await ref.set(patch, { merge: true });
-        return { ...(existing as Color), ...patch } as Color;
+        const hex = input.hex !== undefined ? input.hex || null : (existing?.hex ?? null);
+        const imageUrl =
+          input.imageUrl !== undefined ? input.imageUrl || null : (existing?.imageUrl ?? null);
+        await upsertRow("colors", {
+          id: input.id,
+          name,
+          hex,
+          imageUrl,
+          createdAt: existing?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        });
+        return {
+          id: input.id,
+          name,
+          hex: hex ?? undefined,
+          imageUrl: imageUrl ?? undefined,
+          createdAt: existing?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        };
       }
-      const id = `color-${Date.now()}`;
       const color: Color = {
-        id,
+        id: `color-${Date.now()}`,
         name: (input.name ?? "").trim() || "Unnamed",
         hex: input.hex || undefined,
         imageUrl: input.imageUrl || undefined,
         createdAt: nowIso,
         updatedAt: nowIso,
       };
-      await col.doc(id).set(stripUndefined(color));
+      await upsertRow("colors", {
+        id: color.id,
+        name: color.name,
+        hex: nullIfUndef(color.hex),
+        imageUrl: nullIfUndef(color.imageUrl),
+        createdAt: color.createdAt,
+        updatedAt: color.updatedAt,
+      });
       return color;
     }
     return mutateLocal((s) => {
@@ -781,9 +1079,9 @@ export async function saveColor(input: ColorInput): Promise<Color> {
 
 export async function deleteColor(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("colors").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("colors", "id", id);
       return;
     }
     await mutateLocal((s) => {
@@ -799,9 +1097,10 @@ export async function deleteColor(id: string): Promise<void> {
 export async function listQueries(): Promise<ContactQuery[]> {
   return resilientRead(
     "queries:all",
-    async (f) => {
-      const snap = await f.collection("queries").orderBy("createdAt", "desc").get();
-      return snap.docs.map((d) => d.data() as ContactQuery);
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM queries ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToQuery);
     },
     async () => {
       const s = await loadLocal();
@@ -832,9 +1131,21 @@ export async function createQuery(input: {
     };
     const phone = input.phone?.trim();
     if (phone) q.phone = phone;
-    const f = db();
-    if (f) {
-      await f.collection("queries").doc(q.id).set(q);
+    const pool = mysqlPool();
+    if (pool) {
+      await upsertRow("queries", {
+        id: q.id,
+        name: q.name,
+        email: q.email,
+        phone: nullIfUndef(q.phone),
+        subject: q.subject,
+        message: q.message,
+        status: q.status,
+        reply: null,
+        repliedAt: null,
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+      });
       return q;
     }
     return mutateLocal((s) => {
@@ -853,25 +1164,29 @@ export async function saveQuery(
 ): Promise<ContactQuery | null> {
   try {
     const nowIso = new Date().toISOString();
-    const f = db();
-    if (f) {
-      const ref = f.collection("queries").doc(id);
-      const snap = await ref.get();
-      if (!snap.exists) return null;
-      const update: Record<string, unknown> = { updatedAt: nowIso };
-      if (patch.status) update.status = patch.status;
+    const pool = mysqlPool();
+    if (pool) {
+      const [rows] = await pool.query("SELECT * FROM queries WHERE id = ? LIMIT 1", [id]);
+      const list = rows as Record<string, unknown>[];
+      if (!list.length) return null;
+      const sets: string[] = ["updatedAt = ?"];
+      const vals: unknown[] = [nowIso];
+      if (patch.status) {
+        sets.push("status = ?");
+        vals.push(patch.status);
+      }
       if (patch.reply !== undefined) {
         if (patch.reply.trim()) {
-          update.reply = patch.reply.trim();
-          update.repliedAt = nowIso;
-          update.status = "replied";
+          sets.push("reply = ?", "repliedAt = ?", "status = ?");
+          vals.push(patch.reply.trim(), nowIso, "replied");
         } else {
-          update.reply = FieldValue.delete();
+          sets.push("reply = NULL");
         }
       }
-      await ref.set(update, { merge: true });
-      const fresh = await ref.get();
-      return fresh.data() as ContactQuery;
+      vals.push(id);
+      await pool.query(`UPDATE queries SET ${sets.join(", ")} WHERE id = ?`, vals);
+      const [fresh] = await pool.query("SELECT * FROM queries WHERE id = ? LIMIT 1", [id]);
+      return rowToQuery((fresh as Record<string, unknown>[])[0]);
     }
     return mutateLocal((s) => {
       const i = s.queries.findIndex((x) => x.id === id);
@@ -897,9 +1212,9 @@ export async function saveQuery(
 
 export async function deleteQuery(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("queries").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("queries", "id", id);
       return;
     }
     await mutateLocal((s) => {
@@ -915,9 +1230,10 @@ export async function deleteQuery(id: string): Promise<void> {
 export async function listCoupons(): Promise<Coupon[]> {
   return resilientRead(
     "coupons:all",
-    async (f) => {
-      const snap = await f.collection("coupons").orderBy("createdAt", "desc").get();
-      return snap.docs.map((d) => d.data() as Coupon);
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM coupons ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToCoupon);
     },
     async () => {
       const s = await loadLocal();
@@ -938,28 +1254,24 @@ export async function saveCoupon(
 ): Promise<Coupon> {
   try {
     const nowIso = new Date().toISOString();
-    const f = db();
-    if (f) {
-      const col = f.collection("coupons");
+    const pool = mysqlPool();
+    if (pool) {
       if (input.id) {
-        const ref = col.doc(input.id);
-        const existing = (await ref.get()).data() as Coupon | undefined;
-        const patch: Record<string, unknown> = { updatedAt: nowIso };
-        const cleared: string[] = [];
-        if (input.code !== undefined) patch.code = input.code.trim().toUpperCase();
+        const [rows] = await pool.query("SELECT * FROM coupons WHERE id = ? LIMIT 1", [input.id]);
+        const list = rows as Record<string, unknown>[];
+        if (!list.length) throw new Error("Coupon not found.");
+        const cur = rowToCoupon(list[0]);
+        if (input.code !== undefined) cur.code = input.code.trim().toUpperCase();
         for (const k of ["type", "value", "minSubtotal", "maxUses", "active", "startsAt", "endsAt"] as const) {
-          if (input[k] !== undefined) {
-            if (input[k] === "") {
-              patch[k] = FieldValue.delete();
-              cleared.push(k);
-            } else patch[k] = input[k];
+          const v = input[k];
+          if (v !== undefined) {
+            if (v === "") delete (cur as unknown as Record<string, unknown>)[k];
+            else (cur as unknown as Record<string, unknown>)[k] = v;
           }
         }
-        await ref.set(patch, { merge: true });
-        const fresh = await ref.get();
-        const data = { ...(fresh.data() as Coupon) };
-        for (const k of cleared) delete (data as Record<string, unknown>)[k];
-        return data;
+        cur.updatedAt = nowIso;
+        await upsertRow("coupons", couponToRow(cur));
+        return cur;
       }
       const coupon: Coupon = {
         id: `cpn-${Date.now()}`,
@@ -975,7 +1287,7 @@ export async function saveCoupon(
         createdAt: nowIso,
         updatedAt: nowIso,
       };
-      await col.doc(coupon.id).set(stripUndefined(coupon));
+      await upsertRow("coupons", couponToRow(coupon));
       return coupon;
     }
     return mutateLocal((s) => {
@@ -1018,11 +1330,28 @@ export async function saveCoupon(
   }
 }
 
+function couponToRow(c: Coupon): Record<string, unknown> {
+  return {
+    id: c.id,
+    code: c.code,
+    type: c.type,
+    value: c.value,
+    minSubtotal: nullIfUndef(c.minSubtotal),
+    maxUses: nullIfUndef(c.maxUses),
+    usedCount: c.usedCount,
+    startsAt: nullIfUndef(c.startsAt),
+    endsAt: nullIfUndef(c.endsAt),
+    active: c.active ? 1 : 0,
+    createdAt: nullIfUndef(c.createdAt),
+    updatedAt: nullIfUndef(c.updatedAt),
+  };
+}
+
 export async function deleteCoupon(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("coupons").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("coupons", "id", id);
       return;
     }
     await mutateLocal((s) => {
@@ -1039,17 +1368,17 @@ export async function validateCoupon(
   subtotal: number
 ): Promise<{ valid: boolean; coupon?: Coupon; discount: number; reason?: string }> {
   const now = Date.now();
-  const find = async (): Promise<Coupon | undefined> => {
-    const f = db();
-    const wanted = code.trim().toUpperCase();
-    if (f) {
-      const q = await f.collection("coupons").where("code", "==", wanted).limit(1).get();
-      return q.empty ? undefined : (q.docs[0].data() as Coupon);
-    }
+  const wanted = code.trim().toUpperCase();
+  let coupon: Coupon | undefined;
+  const pool = mysqlPool();
+  if (pool) {
+    const [rows] = await pool.query("SELECT * FROM coupons WHERE code = ? LIMIT 1", [wanted]);
+    const list = rows as Record<string, unknown>[];
+    coupon = list.length ? rowToCoupon(list[0]) : undefined;
+  } else {
     const s = await loadLocal();
-    return s.coupons.find((c) => c.code === wanted);
-  };
-  const coupon = await find();
+    coupon = s.coupons.find((c) => c.code === wanted);
+  }
   if (!coupon) return { valid: false, discount: 0, reason: "That code isn't recognised." };
   if (!coupon.active) return { valid: false, discount: 0, reason: "That code is no longer active." };
   if (coupon.startsAt && Date.parse(coupon.startsAt) > now)
@@ -1073,12 +1402,11 @@ export async function validateCoupon(
 
 async function incrementCouponUse(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      const ref = f.collection("coupons").doc(id);
-      await ref.set(
-        { usedCount: FieldValue.increment(1), updatedAt: new Date().toISOString() },
-        { merge: true }
+    const pool = mysqlPool();
+    if (pool) {
+      await pool.query(
+        "UPDATE coupons SET usedCount = usedCount + 1, updatedAt = ? WHERE id = ?",
+        [new Date().toISOString(), id]
       );
       return;
     }
@@ -1096,9 +1424,10 @@ async function incrementCouponUse(id: string): Promise<void> {
 export async function listFlashSales(): Promise<FlashSale[]> {
   return resilientRead(
     "flashsales:all",
-    async (f) => {
-      const snap = await f.collection("flashSales").orderBy("createdAt", "desc").get();
-      return snap.docs.map((d) => d.data() as FlashSale);
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM flash_sales ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToFlashSale);
     },
     async () => {
       const s = await loadLocal();
@@ -1121,22 +1450,43 @@ export async function getActiveFlashSale(): Promise<FlashSale | null> {
   );
 }
 
+function flashSaleToRow(s: FlashSale): Record<string, unknown> {
+  return {
+    id: s.id,
+    title: s.title,
+    subtitle: nullIfUndef(s.subtitle),
+    imageUrl: nullIfUndef(s.imageUrl),
+    linkUrl: nullIfUndef(s.linkUrl),
+    linkLabel: nullIfUndef(s.linkLabel),
+    startsAt: nullIfUndef(s.startsAt),
+    endsAt: nullIfUndef(s.endsAt),
+    active: s.active ? 1 : 0,
+    createdAt: nullIfUndef(s.createdAt),
+    updatedAt: nullIfUndef(s.updatedAt),
+  };
+}
+
 export async function saveFlashSale(input: Partial<FlashSale> & { title?: string }): Promise<FlashSale> {
   try {
     const nowIso = new Date().toISOString();
-    const f = db();
-    if (f) {
-      const col = f.collection("flashSales");
+    const pool = mysqlPool();
+    if (pool) {
       if (input.id) {
-        const ref = col.doc(input.id);
-        const patch: Record<string, unknown> = { updatedAt: nowIso };
+        const [rows] = await pool.query("SELECT * FROM flash_sales WHERE id = ? LIMIT 1", [input.id]);
+        const list = rows as Record<string, unknown>[];
+        if (!list.length) throw new Error("Flash sale not found.");
+        const cur = rowToFlashSale(list[0]);
         for (const k of ["title", "subtitle", "imageUrl", "linkUrl", "linkLabel", "startsAt", "endsAt"] as const) {
-          if (input[k] !== undefined) patch[k] = input[k] === "" ? FieldValue.delete() : input[k];
+          const v = input[k];
+          if (v !== undefined) {
+            if (v) (cur as unknown as Record<string, unknown>)[k] = v;
+            else delete (cur as unknown as Record<string, unknown>)[k];
+          }
         }
-        if (input.active !== undefined) patch.active = input.active;
-        await ref.set(patch, { merge: true });
-        const fresh = await ref.get();
-        return fresh.data() as FlashSale;
+        if (input.active !== undefined) cur.active = input.active;
+        cur.updatedAt = nowIso;
+        await upsertRow("flash_sales", flashSaleToRow(cur));
+        return cur;
       }
       const sale: FlashSale = {
         id: `fls-${Date.now()}`,
@@ -1151,7 +1501,7 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
         createdAt: nowIso,
         updatedAt: nowIso,
       };
-      await col.doc(sale.id).set(stripUndefined(sale));
+      await upsertRow("flash_sales", flashSaleToRow(sale));
       return sale;
     }
     return mutateLocal((s) => {
@@ -1195,9 +1545,9 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
 
 export async function deleteFlashSale(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("flashSales").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("flash_sales", "id", id);
       return;
     }
     await mutateLocal((s) => {
@@ -1213,12 +1563,12 @@ export async function deleteFlashSale(id: string): Promise<void> {
 export async function listProductReviews(productId?: string): Promise<ProductReview[]> {
   return resilientRead(
     `productReviews:${productId ?? "all"}`,
-    async (f) => {
-      let q = f.collection("productReviews").orderBy("createdAt", "desc");
-      const snap = productId
-        ? await q.where("productId", "==", productId).get()
-        : await q.get();
-      return snap.docs.map((d) => d.data() as ProductReview);
+    async () => {
+      const pool = requirePool();
+      const [rows] = productId
+        ? await pool.query("SELECT * FROM product_reviews WHERE productId = ? ORDER BY createdAt DESC", [productId])
+        : await pool.query("SELECT * FROM product_reviews ORDER BY createdAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToProductReview);
     },
     async () => {
       const s = await loadLocal();
@@ -1233,25 +1583,18 @@ export interface ReviewStats {
   avg: number; // 0 when no reviews
 }
 
-/** Review counts + average rating for the given products (batch). */
+/** Review counts + average rating for the given products (single GROUP BY query). */
 export async function getProductReviewStats(productIds: string[]): Promise<Map<string, ReviewStats>> {
   const out = new Map<string, ReviewStats>();
   if (productIds.length === 0) return out;
-  const f = db();
-  if (f) {
-    // Firestore has no server-side aggregation here; one batched read per 10 ids.
-    for (let i = 0; i < productIds.length; i += 10) {
-      const chunk = productIds.slice(i, i + 10);
-      const snap = await f.collection("productReviews").where("productId", "in", chunk).get();
-      const acc = new Map<string, { n: number; sum: number }>();
-      for (const d of snap.docs) {
-        const r = d.data() as ProductReview;
-        const a = acc.get(r.productId) ?? { n: 0, sum: 0 };
-        a.n += 1;
-        a.sum += r.rating;
-        acc.set(r.productId, a);
-      }
-      for (const [pid, a] of acc) out.set(pid, { count: a.n, avg: a.sum / a.n });
+  const pool = mysqlPool();
+  if (pool) {
+    const [rows] = await pool.query(
+      "SELECT productId, COUNT(*) AS n, AVG(rating) AS a FROM product_reviews WHERE productId IN (?) GROUP BY productId",
+      [productIds]
+    );
+    for (const r of rows as { productId: string; n: number; a: number }[]) {
+      out.set(r.productId, { count: Number(r.n), avg: Number(r.a) });
     }
     return out;
   }
@@ -1296,9 +1639,21 @@ export async function createProductReview(input: {
       createdAt: nowIso,
     };
     stripUndefined(review);
-    const f = db();
-    if (f) {
-      await f.collection("productReviews").doc(review.id).set(review);
+    const pool = mysqlPool();
+    if (pool) {
+      await upsertRow("product_reviews", {
+        id: review.id,
+        productId: review.productId,
+        productSlug: nullIfUndef(review.productSlug),
+        productName: nullIfUndef(review.productName),
+        author: review.author,
+        location: nullIfUndef(review.location),
+        rating: review.rating,
+        title: nullIfUndef(review.title),
+        body: review.body,
+        verified: review.verified ? 1 : 0,
+        createdAt: review.createdAt,
+      });
       return review;
     }
     return mutateLocal((s) => {
@@ -1312,9 +1667,9 @@ export async function createProductReview(input: {
 
 export async function deleteProductReview(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("productReviews").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("product_reviews", "id", id);
       return;
     }
     await mutateLocal((s) => {
@@ -1330,18 +1685,12 @@ export async function deleteProductReview(id: string): Promise<void> {
 export async function listPosts(publishedOnly = false): Promise<Post[]> {
   return resilientRead(
     `posts:${publishedOnly}`,
-    async (f) => {
-        const snap = await f.collection("posts").orderBy("publishedAt", "desc").get();
-        if (snap.empty && !publishedOnly) {
-          // first run: seed posts
-          const batch = f.batch();
-          for (const p of seedPosts) batch.set(f.collection("posts").doc(p.id), p);
-          await batch.commit();
-          return seedPosts;
-        }
-        const all = snap.docs.map((d) => d.data() as Post);
-        return publishedOnly ? all.filter((p) => p.status === "published") : all;
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = publishedOnly
+        ? await pool.query("SELECT * FROM posts WHERE status = 'published' ORDER BY publishedAt DESC")
+        : await pool.query("SELECT * FROM posts ORDER BY publishedAt DESC");
+      return (rows as Record<string, unknown>[]).map(rowToPost);
     },
     async () => {
       const s = await loadLocal();
@@ -1354,12 +1703,14 @@ export async function listPosts(publishedOnly = false): Promise<Post[]> {
 export async function getPost(slugOrId: string): Promise<Post | null> {
   return resilientRead(
     `post:${slugOrId}`,
-    async (f) => {
-        const byId = await f.collection("posts").doc(slugOrId).get();
-        if (byId.exists) return byId.data() as Post;
-        const q = await f.collection("posts").where("slug", "==", slugOrId).limit(1).get();
-        return q.empty ? null : (q.docs[0].data() as Post);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM posts WHERE id = ? OR slug = ? LIMIT 1", [
+        slugOrId,
+        slugOrId,
+      ]);
+      const list = rows as Record<string, unknown>[];
+      return list.length ? rowToPost(list[0]) : null;
     },
     async () => {
       const s = await loadLocal();
@@ -1384,28 +1735,51 @@ function normalizePost(input: Partial<Post> & { title: string }): Partial<Post> 
   };
 }
 
+function postToRow(p: Post): Record<string, unknown> {
+  return {
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    excerpt: nullIfUndef(p.excerpt),
+    content: nullIfUndef(p.content),
+    coverColor: nullIfUndef(p.coverColor),
+    tags: toJson(p.tags ?? []),
+    status: p.status,
+    metaTitle: nullIfUndef(p.metaTitle),
+    metaDescription: nullIfUndef(p.metaDescription),
+    publishedAt: nullIfUndef(p.publishedAt),
+    updatedAt: nullIfUndef(p.updatedAt),
+    readingMinutes: p.readingMinutes ?? 1,
+    authorName: nullIfUndef(p.authorName),
+    faqJson: toJson(p.faqJson),
+  };
+}
+
 export async function savePost(input: Partial<Post> & { title: string }): Promise<Post> {
   try {
-    const f = db();
     const nowIso = new Date().toISOString();
-    if (f) {
-      const col = f.collection("posts");
+    const pool = mysqlPool();
+    if (pool) {
       if (input.id) {
-        const ref = col.doc(input.id);
-        const existing = (await ref.get()).data() as Post | undefined;
+        const [rows] = await pool.query("SELECT * FROM posts WHERE id = ? LIMIT 1", [input.id]);
+        const list = rows as Record<string, unknown>[];
+        const existing = list.length ? rowToPost(list[0]) : undefined;
         const merged: Post = {
           ...(existing as Post),
           ...normalizePost(input),
           slug: input.slug || existing?.slug || slugify(input.title),
           updatedAt: nowIso,
         } as Post;
-        await ref.set(merged, { merge: true });
+        if (!merged.id) merged.id = input.id;
+        await upsertRow("posts", postToRow(merged));
         return merged;
       }
-      const all = await listPosts();
+      invalidateReadCache();
+      const [slugRows] = await pool.query("SELECT slug FROM posts");
+      const taken = new Set((slugRows as { slug: string }[]).map((r) => r.slug));
       const post: Post = {
         id: `post-${Date.now()}`,
-        slug: uniqueSlug(slugify(input.title), new Set(all.map((p) => p.slug))),
+        slug: uniqueSlug(slugify(input.title), taken),
         excerpt: "",
         content: "",
         tags: [],
@@ -1414,7 +1788,7 @@ export async function savePost(input: Partial<Post> & { title: string }): Promis
         updatedAt: nowIso,
         ...normalizePost(input),
       } as Post;
-      await col.doc(post.id).set(post);
+      await upsertRow("posts", postToRow(post));
       return post;
     }
     return mutateLocal((s) => {
@@ -1439,7 +1813,6 @@ export async function savePost(input: Partial<Post> & { title: string }): Promis
       s.posts.push(post);
       return post;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -1447,15 +1820,14 @@ export async function savePost(input: Partial<Post> & { title: string }): Promis
 
 export async function deletePost(id: string): Promise<void> {
   try {
-    const f = db();
-    if (f) {
-      await f.collection("posts").doc(id).delete();
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("posts", "id", id);
       return;
     }
     await mutateLocal((s) => {
       s.posts = s.posts.filter((p) => p.id !== id);
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -1464,16 +1836,10 @@ export async function deletePost(id: string): Promise<void> {
 export async function listReviews(): Promise<Review[]> {
   return resilientRead(
     "reviews:all",
-    async (f) => {
-        const snap = await f.collection("reviews").orderBy("order").get();
-        if (snap.empty) {
-          const batch = f.batch();
-          for (const r of seedReviews) batch.set(f.collection("reviews").doc(r.id), r);
-          await batch.commit();
-          return seedReviews;
-        }
-        return snap.docs.map((d) => d.data() as Review);
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM reviews ORDER BY `order` ASC");
+      return (rows as Record<string, unknown>[]).map(rowToReview);
     },
     async () => {
       const s = await loadLocal();
@@ -1484,18 +1850,25 @@ export async function listReviews(): Promise<Review[]> {
 
 export async function saveReviews(reviews: Review[]): Promise<Review[]> {
   try {
-    const f = db();
-    if (f) {
-      const batch = f.batch();
-      for (const r of reviews) batch.set(f.collection("reviews").doc(r.id), r, { merge: true });
-      await batch.commit();
+    const pool = mysqlPool();
+    if (pool) {
+      await pool.query("DELETE FROM reviews");
+      for (const r of reviews) {
+        await upsertRow("reviews", {
+          id: r.id,
+          quote: nullIfUndef(r.quote),
+          author: nullIfUndef(r.author),
+          location: nullIfUndef(r.location),
+          rating: r.rating,
+          order: r.order,
+        });
+      }
       return reviews;
     }
     return mutateLocal((s) => {
       s.reviews = reviews;
       return reviews;
     });
-
   } finally {
     invalidateReadCache();
   }
@@ -1504,14 +1877,15 @@ export async function saveReviews(reviews: Review[]): Promise<Review[]> {
 export async function getSettings(): Promise<SiteSettings> {
   return resilientRead(
     "settings",
-    async (f) => {
-        const snap = await f.collection("settings").doc("site").get();
-        if (!snap.exists) {
-          await f.collection("settings").doc("site").set(seedSettings);
-          return seedSettings;
-        }
-        return { ...seedSettings, ...(snap.data() as Partial<SiteSettings>) };
-    
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM settings WHERE id = 'site' LIMIT 1");
+      const list = rows as Record<string, unknown>[];
+      if (!list.length) {
+        await upsertRow("settings", settingsToRow("site", seedSettings));
+        return structuredClone(seedSettings);
+      }
+      return { ...structuredClone(seedSettings), ...rowToSettings(list[0]) };
     },
     async () => {
       const s = await loadLocal();
@@ -1520,19 +1894,51 @@ export async function getSettings(): Promise<SiteSettings> {
   );
 }
 
+function rowToSettings(r: Record<string, unknown>): Partial<SiteSettings> {
+  return {
+    announcementBar: parseJson<string[]>(r.announcementBar, []),
+    freeDeliveryThreshold: toNum(r.freeDeliveryThreshold),
+    acceptedPayments: parseJson<SiteSettings["acceptedPayments"]>(r.acceptedPayments, []),
+    deliveryTimeText: (r.deliveryTimeText as string) ?? "",
+    confirmationCallText: (r.confirmationCallText as string) ?? "",
+    refusalPolicy: (r.refusalPolicy as string) ?? "",
+    phone: (r.phone as string) ?? "",
+    email: (r.email as string) ?? "",
+    address: (r.address as string) ?? "",
+    trustpilotRating: (r.trustpilotRating as string) ?? "",
+  };
+}
+
+function settingsToRow(id: string, s: SiteSettings): Record<string, unknown> {
+  return {
+    id,
+    announcementBar: toJson(s.announcementBar ?? []),
+    freeDeliveryThreshold: s.freeDeliveryThreshold ?? 0,
+    acceptedPayments: toJson(s.acceptedPayments ?? []),
+    deliveryTimeText: nullIfUndef(s.deliveryTimeText),
+    confirmationCallText: nullIfUndef(s.confirmationCallText),
+    refusalPolicy: nullIfUndef(s.refusalPolicy),
+    phone: nullIfUndef(s.phone),
+    email: nullIfUndef(s.email),
+    address: nullIfUndef(s.address),
+    trustpilotRating: nullIfUndef(s.trustpilotRating),
+  };
+}
+
 export async function saveSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
   try {
-    const f = db();
-    if (f) {
-      const ref = f.collection("settings").doc("site");
-      await ref.set(patch, { merge: true });
+    const pool = mysqlPool();
+    if (pool) {
+      const current = await getSettings();
+      const merged = { ...current, ...patch };
+      await upsertRow("settings", settingsToRow("site", merged));
+      invalidateReadCache();
       return getSettings();
     }
     return mutateLocal((s) => {
       s.settings = { ...s.settings, ...patch };
       return s.settings;
     });
-
   } finally {
     invalidateReadCache();
   }

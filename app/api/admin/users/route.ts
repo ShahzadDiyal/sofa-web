@@ -1,5 +1,5 @@
 /* Admin user management API (all routes require a signed-in admin).
-   GET     -> list all users in the Firestore `users` collection.
+   GET     -> list all users in the MySQL `users` table.
    POST    -> { email, password, role } creates a user (upserts by email).
    PATCH   -> { email, role } changes a user's role. Refuses to demote the
               last remaining admin.
@@ -21,13 +21,13 @@ function isRole(v: unknown): v is AdminRole {
   return v === "admin" || v === "user";
 }
 
-/** Honest 500 for Firestore failures: quota exhaustion is not "not configured". */
+/** Honest 500/503 for database failures. */
 function dbError(e: unknown) {
   const msg = e instanceof Error ? e.message : "";
-  const quota = /quota|exhausted|resource_exhausted/i.test(msg);
+  const notConfigured = msg === "MySQL is not configured (DATABASE_URL).";
   return NextResponse.json(
-    { error: quota ? "Firestore quota is exhausted right now — please try again later." : "Server Firebase is not configured." },
-    { status: quota ? 503 : 500 }
+    { error: notConfigured ? "Server database is not configured." : "Database unavailable — please try again." },
+    { status: notConfigured ? 500 : 503 }
   );
 }
 
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ user });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not create user.";
-    const status = msg === "Server Firebase is not configured." ? 500 : 400;
+    const status = msg === "MySQL is not configured (DATABASE_URL)." ? 500 : 400;
     return NextResponse.json({ error: msg }, { status });
   }
 }

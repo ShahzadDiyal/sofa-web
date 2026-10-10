@@ -1,5 +1,5 @@
 /* Admin session endpoints.
-   POST   { email, password } -> checks the Firestore `users` collection
+   POST   { email, password } -> checks the MySQL `users` table
                        (account must exist with role "admin"), sets the
                        httpOnly `sofora_admin` session cookie. The cookie
                        is long-lived (10 years) — the admin session
@@ -24,17 +24,10 @@ export async function POST(req: Request) {
     user = await verifyAdminCredentials(email, password);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Sign-in failed.";
-    const quota = /quota|exhausted|resource_exhausted/i.test(msg);
-    return NextResponse.json(
-      {
-        error: quota
-          ? "Firestore quota is exhausted right now — please try again later."
-          : msg === "Server Firebase is not configured."
-            ? "Server Firebase is not configured."
-            : "Sign-in failed. Please try again.",
-      },
-      { status: quota ? 503 : 500 }
-    );
+    if (msg === "MySQL is not configured (DATABASE_URL).") {
+      return NextResponse.json({ error: "Server database is not configured." }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Database unavailable — please try again." }, { status: 503 });
   }
   if (!user) {
     return NextResponse.json(

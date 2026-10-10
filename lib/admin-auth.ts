@@ -1,8 +1,8 @@
 /* Admin gate for API routes and the admin UI.
    ------------------------------------------------------------------
    Sign-in is a simple email + password form at /admin/login. POST
-   /api/admin/session checks the credentials against the Firestore
-   `users` collection (see lib/admin-users.ts) — the account must exist
+   /api/admin/session checks the credentials against the MySQL `users`
+   table (see lib/admin-users.ts) — the account must exist
    there with role "admin". On success the server sets the httpOnly
    `sofora_admin` cookie: base64url(email) + "." + HMAC-SHA256 signature,
    signed with ADMIN_SESSION_SECRET (production) or a fixed dev secret
@@ -24,7 +24,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { getAdminUser } from "./admin-users";
-import { isFirebaseConfigured } from "./firebase-admin";
+import { isMysqlConfigured } from "./mysql";
 
 export const ADMIN_COOKIE = "sofora_admin";
 
@@ -97,8 +97,8 @@ export async function getAdminEmail(): Promise<string | null> {
   if (!session) return null;
   const email = verifySessionValue(session);
   if (!email) return null;
-  // Without Firebase no session could ever have been issued — fail closed.
-  if (!isFirebaseConfigured()) return null;
+  // Without MySQL no session could ever have been issued — fail closed.
+  if (!isMysqlConfigured()) return null;
   try {
     const user = await withTimeout(getAdminUser(email), 5000);
     // Account deleted or demoted: revoke immediately — fail closed.
