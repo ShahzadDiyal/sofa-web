@@ -22,7 +22,12 @@ const env = Object.fromEntries(
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
     .map((l) => {
       const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+      let v = l.slice(i + 1).trim();
+      // Strip surrounding quotes some editors add around the private key.
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1);
+      }
+      return [l.slice(0, i).trim(), v];
     })
 );
 
