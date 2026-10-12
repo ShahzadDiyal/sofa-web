@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SiteSettings } from "@/lib/types";
-import { gbp } from "@/lib/seo";
+import { gbp, apiUrl } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -63,7 +63,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
       setCouponMsg("");
     }
     try {
-      const res = await fetch("/api/coupons/validate", {
+      const res = await fetch(apiUrl("/api/coupons/validate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: c, subtotal }),
@@ -121,7 +121,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
     setPlacing(true);
     setError("");
     try {
-      const res = await fetch("/api/orders", {
+      const res = await fetch(apiUrl("/api/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

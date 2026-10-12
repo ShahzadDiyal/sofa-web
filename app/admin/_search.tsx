@@ -7,6 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconSearch } from "@/components/Icons";
+import { apiUrl } from "@/lib/seo";
 import type { AdminSearchResult } from "@/app/api/admin/search/route";
 
 type Group = { type: string; label: string; items: AdminSearchResult[] };
@@ -31,7 +32,7 @@ export default function AdminSearch({ id }: { id: string }) {
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(q.trim())}`);
+        const res = await fetch(apiUrl(`/api/admin/search?q=${encodeURIComponent(q.trim())}`));
         const json = (await res.json().catch(() => ({}))) as { groups?: Group[] };
         setGroups(Array.isArray(json.groups) ? json.groups : []);
       } catch {

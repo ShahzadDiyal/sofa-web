@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Color, Faq, Product, SiteSettings } from "@/lib/types";
-import { gbp } from "@/lib/seo";
+import { gbp, apiUrl } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -60,7 +60,7 @@ export default function ProductClient({
   const toast = useToast();
   const [libColors, setLibColors] = useState<Color[]>([]);
   useEffect(() => {
-    fetch("/api/colors")
+    fetch(apiUrl("/api/colors"))
       .then((r) => r.json())
       .then((d) => setLibColors(d.colors ?? []))
       .catch(() => {});

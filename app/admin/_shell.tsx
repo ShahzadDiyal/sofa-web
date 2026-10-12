@@ -6,6 +6,7 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/seo";
 import {
   IconArrowRight,
   IconArticle,
@@ -62,7 +63,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   // visitors from seeing empty admin screens.
   useEffect(() => {
     if (isLoginPage) return;
-    fetch("/api/admin/session")
+    fetch(apiUrl("/api/admin/session"))
       .then((r) => {
         if (!r.ok) throw new Error("signed out");
         return r.json();
@@ -71,7 +72,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         setAdminEmail(d.email ?? null);
         setAuthChecked(true);
       })
-      .catch(() => window.location.replace("/admin/login"));
+      .catch(() => window.location.replace(apiUrl("/admin/login")));
   }, [isLoginPage]);
 
   useEffect(() => {
@@ -85,8 +86,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, [pathname, authChecked]);
 
   async function signOut() {
-    await fetch("/api/admin/session", { method: "DELETE" }).catch(() => {});
-    window.location.replace("/admin/login");
+    await fetch(apiUrl("/api/admin/session"), { method: "DELETE" }).catch(() => {});
+    window.location.replace(apiUrl("/admin/login"));
   }
 
   // Login page renders without the admin chrome.

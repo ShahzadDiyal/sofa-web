@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Order } from "@/lib/types";
-import { gbp } from "@/lib/seo";
+import { gbp, apiUrl } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
 import { IconCheck, IconSofa } from "@/components/Icons";
 
@@ -24,7 +24,7 @@ export default function OrderConfirmedClient() {
   useEffect(() => {
     const token = params.get("t");
     if (!number || !token) { setFailed(true); return; }
-    fetch(`/api/orders/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`)
+    fetch(apiUrl(`/api/orders/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`))
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setOrder(d.order))
       .catch(() => setFailed(true));

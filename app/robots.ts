@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/seo";
+import { BASE_PATH, siteUrl } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
   const base = siteUrl();
@@ -8,9 +8,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/api/", "/order-confirmed"],
+        disallow: [`${BASE_PATH}/admin`, `${BASE_PATH}/api/`, `${BASE_PATH}/order-confirmed`],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: `${base}${BASE_PATH}/sitemap.xml`,
   };
 }

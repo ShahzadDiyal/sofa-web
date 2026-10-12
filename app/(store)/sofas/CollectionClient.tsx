@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Category, Color, Product } from "@/lib/types";
-import { gbp } from "@/lib/seo";
+import { gbp, apiUrl } from "@/lib/seo";
 import { Breadcrumbs, JsonLd, ProductCard } from "@/components/storefront";
 import { itemListJsonLd } from "@/lib/seo";
 import { IconCash, IconShield, IconTruck } from "@/components/Icons";
@@ -131,7 +131,7 @@ export default function CollectionClient({
   /* Colour filter swatches come from the managed library (Admin → Colours). */
   const [libColors, setLibColors] = useState<Color[] | null>(null);
   useEffect(() => {
-    fetch("/api/colors")
+    fetch(apiUrl("/api/colors"))
       .then((r) => r.json())
       .then((d) => setLibColors(d.colors ?? []))
       .catch(() => setLibColors([]));

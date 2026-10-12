@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { IconCheck } from "@/components/Icons";
 import { useToast } from "@/components/toast";
+import { apiUrl } from "@/lib/seo";
 
 const inputCls =
   "w-full bg-white border-[1.5px] border-line rounded-[14px] px-4 min-h-[52px] text-[15px] outline-none focus:border-forest transition placeholder:text-muted/70";
@@ -26,7 +27,7 @@ export default function QueryForm() {
     setError("");
     setSending(true);
     try {
-      const res = await fetch("/api/queries", {
+      const res = await fetch(apiUrl("/api/queries"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, phone, subject, message }),
