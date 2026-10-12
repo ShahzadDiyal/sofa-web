@@ -5,6 +5,18 @@ const nextConfig: NextConfig = {
      next/link and next/router pick the prefix up automatically; client-side
      fetch() calls must use apiUrl() from @/lib/seo. */
   basePath: "/uk",
+  /* The bare domain must never 404: domain.com/ -> domain.com/uk.
+     basePath:false makes this match the literal "/" outside the basePath. */
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/uk",
+        basePath: false,
+        permanent: true,
+      },
+    ];
+  },
   images: {
     // Product imagery is rendered as vector SVG in v1; allow remote hosts
     // for when real photography is wired up via the admin panel.
