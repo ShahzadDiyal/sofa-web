@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
@@ -103,6 +104,33 @@ export function FaqAccordion({ faqs }: { faqs: { q: string; a: string }[] }) {
           <p className="faq-answer">{f.a}</p>
         </details>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Homepage FAQ preview: shows 5 FAQs, reveals 5 more per click,
+ * and links to the full FAQ page. (Client component — needs useState.)
+ */
+export function FaqPreview({ faqs }: { faqs: { q: string; a: string }[] }) {
+  const [visible, setVisible] = useState(5);
+  return (
+    <div>
+      <FaqAccordion faqs={faqs.slice(0, visible)} />
+      <div className="flex flex-wrap gap-3 mt-7">
+        {visible < faqs.length && (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => v + 5)}
+            className="btn btn-outline"
+          >
+            Show more
+          </button>
+        )}
+        <Link href="/faqs" className="btn btn-outline">
+          View all FAQs
+        </Link>
+      </div>
     </div>
   );
 }

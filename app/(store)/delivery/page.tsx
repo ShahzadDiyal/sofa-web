@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSettings } from "@/lib/db";
+import { getSettings, listFaqs } from "@/lib/db";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, gbp } from "@/lib/seo";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { JsonLd } from "@/components/storefront";
@@ -12,37 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function DeliveryPage() {
-  const s = await getSettings();
+  const [s, faqs] = await Promise.all([getSettings(), listFaqs()]);
   const paymentList = s.acceptedPayments
     .map((m) => PAYMENT_METHOD_LABELS[m].toLowerCase())
     .join(", ");
-
-  const faqs = [
-    {
-      id: "delivery-cost",
-      order: 1,
-      q: "How much does Sofora delivery cost?",
-      a: `Delivery is free on all UK orders over ${gbp(s.freeDeliveryThreshold)}. Orders below that threshold carry a flat ${gbp(29)} delivery charge.`,
-    },
-    {
-      id: "pay-when-ordering",
-      order: 2,
-      q: "Do I pay anything when I order?",
-      a: "No. You order online with your details only and pay nothing. Payment is due to our driver on delivery day, after you have inspected your sofa.",
-    },
-    {
-      id: "upstairs-delivery",
-      order: 3,
-      q: "Will the drivers carry the sofa upstairs?",
-      a: "Yes. Our two-person team delivers to your room of choice, including upstairs rooms where access allows. Tell us the floor and whether there is a lift when you order.",
-    },
-    {
-      id: "sofa-does-not-fit",
-      order: 4,
-      q: "What if my sofa does not fit through the door?",
-      a: "Measure your doorways, hallways and stairwells before ordering and share anything unusual with us. If access proves impossible on the day, the drivers will return the sofa and you pay nothing.",
-    },
-  ];
 
   return (
     <article className="mx-auto max-w-3xl px-6 pt-12 pb-24">

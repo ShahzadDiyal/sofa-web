@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSettings } from "@/lib/db";
+import { getSettings, listFaqs } from "@/lib/db";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/storefront";
 
@@ -11,34 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ReturnsPage() {
-  const s = await getSettings();
-
-  const faqs = [
-    {
-      id: "refuse-at-door",
-      order: 1,
-      q: "Can I refuse the sofa when it arrives?",
-      a: "Yes. Inspect your sofa at the door before paying. If it is not right for any reason, refuse delivery and you pay nothing — no forms, no fees.",
-    },
-    {
-      id: "cancel-window",
-      order: 2,
-      q: "How long do I have to change my mind after delivery?",
-      a: "You have 14 days from the day after delivery to cancel under the Consumer Contracts Regulations 2013. Contact us and we will arrange collection.",
-    },
-    {
-      id: "cod-refund-method",
-      order: 3,
-      q: "How will I be refunded if I paid cash on delivery?",
-      a: "Refunds are paid by bank transfer within 14 days of us collecting (or receiving) the returned sofa. We will ask for your account details when you request the return.",
-    },
-    {
-      id: "return-collection-cost",
-      order: 4,
-      q: "Who pays for return collection?",
-      a: "We arrange and cover collection for cancellations within the 14-day window and for any faulty goods. You only need to make the sofa accessible for our team.",
-    },
-  ];
+  const [s, faqs] = await Promise.all([getSettings(), listFaqs()]);
 
   return (
     <article className="mx-auto max-w-3xl px-6 pt-12 pb-24">

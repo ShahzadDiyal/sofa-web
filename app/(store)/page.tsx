@@ -5,7 +5,7 @@ import FlashSaleBanner from "@/components/FlashSaleBanner";
 import { seedSteps, seedWhy } from "@/lib/seed";
 import { absoluteUrl, defaultOgImage, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
-import { FaqAccordion, JsonLd, ProductCard } from "@/components/storefront";
+import { FaqPreview, JsonLd, ProductCard } from "@/components/storefront";
 import { IconArrowRight, IconCash, IconPhone, IconShield, IconTruck } from "@/components/Icons";
 
 export const metadata: Metadata = {
@@ -271,7 +271,7 @@ export default async function HomePage() {
           </a>
         </div>
         <div className="flex-[2_1_520px]">
-          <FaqAccordion faqs={faqs} />
+          <FaqPreview faqs={faqs} />
         </div>
       </section>
     </>
