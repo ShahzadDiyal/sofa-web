@@ -27,6 +27,10 @@ export const metadata: Metadata = {
   },
 };
 
+/* Homepage renders on every request: data stays live with the database
+   and the "More to explore" picks reshuffle on each load. */
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [products, categories, faqs, productReviews, settings, flashSale] = await Promise.all([
     listProducts(),
@@ -41,6 +45,12 @@ export default async function HomePage() {
   const featured = inStock.filter((p) => p.featured).slice(0, 4);
   const bestsellers = featured.length > 0 ? featured : inStock.slice(0, 4);
   const heroProducts = bestsellers.filter((p) => p.imageUrl).slice(0, 4);
+  /* ~20 random in-stock products per load, excluding the bestsellers above. */
+  const bestsellerIds = new Set(bestsellers.map((p) => p.id));
+  const randomPicks = [...inStock]
+    .filter((p) => !bestsellerIds.has(p.id))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 20);
   const catBySlug = new Map(categories.map((c) => [c.slug, c]));
 
   return (
@@ -213,6 +223,26 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── More to explore: ~20 random products, reshuffled every load ── */}
+      {randomPicks.length > 0 && (
+        <section className="mx-auto px-6 py-24">
+          <div className="flex flex-wrap justify-between items-end gap-4 mb-9">
+            <div className="flex flex-col gap-2.5">
+              <span className="label-caps">More to explore</span>
+              <h2 className="text-[clamp(32px,3.6vw,44px)]">Fresh picks, every visit</h2>
+            </div>
+            <Link href="/sofas" className="btn btn-outline">
+              See all sofas
+            </Link>
+          </div>
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {randomPicks.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Why ── */}
       <section className="mx-auto px-6 py-24">
