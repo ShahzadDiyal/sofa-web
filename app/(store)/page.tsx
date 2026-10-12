@@ -3,10 +3,10 @@ import Link from "next/link";
 import { getActiveFlashSale, getSettings, listCategories, listFaqs, listProductReviews, listProducts } from "@/lib/db";
 import FlashSaleBanner from "@/components/FlashSaleBanner";
 import { seedSteps, seedWhy } from "@/lib/seed";
-import { absoluteUrl, defaultOgImage, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
+import { absoluteUrl, defaultOgImage, gbp, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
 import { FaqPreview, JsonLd, ProductCard, ReviewsCarousel } from "@/components/storefront";
-import { IconArrowRight, IconCash, IconPhone, IconShield, IconTruck } from "@/components/Icons";
+import { IconArrowRight, IconCash, IconCheck, IconPackage, IconPhone, IconShield, IconTruck } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: `Sofora — ${SITE_TAGLINE}`,
@@ -244,8 +244,12 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Why ── */}
+      {/* ── Why choose us ── */}
       <section className="mx-auto px-6 py-24">
+        <div className="flex flex-col gap-2.5 mb-12">
+          <span className="label-caps">Why choose us</span>
+          <h2 className="text-[clamp(32px,3.6vw,44px)]">Sofa buying without the risk</h2>
+        </div>
         <div className="grid gap-12 md:grid-cols-3">
           {seedWhy.map((w) => (
             <div key={w.t} className="flex flex-col gap-3.5 border-t-2 border-ink pt-6">
@@ -253,6 +257,62 @@ export default async function HomePage() {
               <p className="text-body leading-relaxed">{w.d}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Our services ── */}
+      <section className="bg-sand">
+        <div className="mx-auto px-6 py-24">
+          <div className="flex flex-col gap-2.5 mb-12">
+            <span className="label-caps">Our services</span>
+            <h2 className="text-[clamp(32px,3.6vw,44px)]">Everything handled, door to door</h2>
+            <p className="text-body leading-relaxed max-w-[60ch]">
+              From the moment you order to the moment your sofa is in place, every step is
+              handled by our own team — with nothing to pay until you&apos;re happy.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                Icon: IconCash,
+                t: "Cash on delivery furniture",
+                d: "Order any sofa online with just your details — no card, no deposit. Pay the driver by cash, card or bank transfer only after you've inspected it at your door.",
+              },
+              {
+                Icon: IconTruck,
+                t: "Free UK delivery",
+                d: `Free delivery across the UK on orders over ${gbp(settings.freeDeliveryThreshold)}, handled by our own two-person team — never left at the kerbside.`,
+              },
+              {
+                Icon: IconPackage,
+                t: "Room-of-choice delivery",
+                d: "We carry your sofa to the room you want it in — including upstairs where access allows — on a day and time agreed with you in advance.",
+              },
+              {
+                Icon: IconPhone,
+                t: "Confirmation call",
+                d: "A real person calls you before dispatch to confirm your order details and agree a delivery slot that suits your week.",
+              },
+              {
+                Icon: IconCheck,
+                t: "14-day returns",
+                d: "Don't love it at the door? Refuse delivery and pay nothing. After delivery, you still have 14 days to change your mind.",
+              },
+              {
+                Icon: IconShield,
+                t: "5-year frame guarantee",
+                d: "Solid hardwood frames built for busy family life, backed by a 5-year guarantee for complete peace of mind.",
+              },
+            ].map(({ Icon, t, d }) => (
+              <div key={t} className="bg-white rounded-[22px] p-7 flex flex-col gap-4">
+                <span className="w-12 h-12 rounded-full bg-mint grid place-items-center text-forest">
+                  <Icon size={24} />
+                </span>
+                <h3 className="text-[22px] leading-snug">{t}</h3>
+                <p className="text-body leading-relaxed text-[15px]">{d}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
