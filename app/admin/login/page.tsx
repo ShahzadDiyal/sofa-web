@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import Logo from "@/components/Logo";
+import { apiUrl } from "@/lib/seo";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/api/admin/session", {
+      const r = await fetch(apiUrl("/api/admin/session"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -30,7 +31,7 @@ export default function AdminLoginPage() {
         setBusy(false);
         return;
       }
-      window.location.replace("/admin");
+      window.location.replace(apiUrl("/admin"));
     } catch {
       setError("Sign-in failed. Please try again.");
       setBusy(false);

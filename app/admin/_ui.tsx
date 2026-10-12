@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { OrderStatus } from "@/lib/types";
+import { apiUrl } from "@/lib/seo";
 
 /* ---------- status pills (colors from SPEC §Order status badge colors) ---------- */
 
@@ -185,7 +186,8 @@ export const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 /* ---------- API helper ---------- */
 
 export async function api<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  // Client-side fetch() does not apply basePath (/uk) automatically.
+  const res = await fetch(apiUrl(path), {
     method,
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -207,7 +209,7 @@ export async function uploadImage(file: File, folder = "uploads"): Promise<strin
   const form = new FormData();
   form.append("file", file);
   form.append("folder", folder);
-  const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+  const res = await fetch(apiUrl("/api/admin/upload"), { method: "POST", body: form });
   const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
   if (!res.ok || !json.url) throw new Error(json.error || `Upload failed (${res.status}).`);
   return json.url;

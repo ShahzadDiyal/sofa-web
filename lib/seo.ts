@@ -15,8 +15,20 @@ export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "https://sofora.example").replace(/\/$/, "");
 }
 
+/* Every public route lives under /uk (Next.js basePath). absoluteUrl always
+   builds the public SEO-facing URL, including the prefix. */
+export const BASE_PATH = "/uk";
+
 export function absoluteUrl(path: string): string {
-  return `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${siteUrl()}${BASE_PATH}${p}`;
+}
+
+/* Client-side fetch() calls do NOT get basePath automatically — use this for
+   every /api/* request from client components. */
+export function apiUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith(BASE_PATH) ? p : `${BASE_PATH}${p}`;
 }
 
 export function gbp(amount: number): string {
@@ -34,8 +46,8 @@ export const defaultOgImage = {
 /* ---------- base metadata ---------- */
 
 export function baseMetadata(): Metadata {
-  const url = siteUrl();
-  const ogImage = defaultOgImage;
+  const url = absoluteUrl("/");
+  const ogImage = { ...defaultOgImage, url: absoluteUrl("/opengraph-image") };
   return {
     metadataBase: new URL(url),
     title: { default: `${SITE_NAME} — ${SITE_TAGLINE}`, template: `%s | ${SITE_NAME}` },

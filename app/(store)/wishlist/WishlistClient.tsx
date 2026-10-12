@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { apiUrl } from "@/lib/seo";
 import { ProductCard } from "@/components/storefront";
 import { IconHeart } from "@/components/Icons";
 
@@ -12,7 +13,7 @@ export default function WishlistClient() {
   const [products, setProducts] = useState<Product[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/products")
+    fetch(apiUrl("/api/products"))
       .then((r) => r.json())
       .then((d) => setProducts(d.products))
       .catch(() => setProducts([]));

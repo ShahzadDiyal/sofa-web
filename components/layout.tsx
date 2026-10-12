@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { apiUrl } from "@/lib/seo";
 import type { Category, FooterLink, FooterMenu, Product } from "@/lib/types";
 import {
   IconBasket,
@@ -27,11 +28,11 @@ function useMenuData() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [products, setProducts] = useState<Product[] | null>(null);
   useEffect(() => {
-    fetch("/api/categories")
+    fetch(apiUrl("/api/categories"))
       .then((r) => r.json())
       .then((d) => setCategories(d.categories ?? []))
       .catch(() => setCategories([]));
-    fetch("/api/products")
+    fetch(apiUrl("/api/products"))
       .then((r) => r.json())
       .then((d) => {
         const list = d.products ?? [];

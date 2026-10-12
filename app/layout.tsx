@@ -3,7 +3,7 @@ import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { ToastProvider } from "@/components/toast";
-import { baseMetadata } from "@/lib/seo";
+import { BASE_PATH, baseMetadata } from "@/lib/seo";
 import { getSettings } from "@/lib/db";
 
 const bricolage = Bricolage_Grotesque({
@@ -14,7 +14,7 @@ const bricolage = Bricolage_Grotesque({
 
 /* Favicon + logo are admin-editable (Admin → Settings → Logo & favicon). */
 export async function generateMetadata(): Promise<Metadata> {
-  let favicon = "/icon.svg";
+  let favicon = `${BASE_PATH}/icon.svg`;
   try {
     const s = await getSettings();
     if (s.faviconUrl) favicon = s.faviconUrl;
@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     ...baseMetadata(),
     icons: { icon: favicon, apple: favicon },
-    manifest: "/manifest.webmanifest",
+    manifest: `${BASE_PATH}/manifest.webmanifest`,
   };
 }
 
