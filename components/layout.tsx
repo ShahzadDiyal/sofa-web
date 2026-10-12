@@ -98,7 +98,7 @@ function ShimmerTiles() {
 export function AnnouncementBar({ messages }: { messages: string[] }) {
   return (
     <div className="bg-forest text-cream text-sm">
-      <div className="mx-auto px-6 flex gap-9 flex-wrap justify-center py-2.5">
+      <div className="mx-auto px-6 flex gap-1 md:gap-9 flex-wrap justify-center py-2.5">
         {messages.map((m) => (
           <span key={m}>{m}</span>
         ))}
