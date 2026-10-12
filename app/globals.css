@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-sans: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Bricolage Grotesque", "Bricolage Grotesque Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Bricolage Grotesque", "Bricolage Grotesque Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Sofora brand palette (from design mockup) */
   --color-forest: #1f3a32;

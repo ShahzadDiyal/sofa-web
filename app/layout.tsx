@@ -1,13 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { baseMetadata } from "@/lib/seo";
 
-const poppins = Poppins({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-poppins",
+  variable: "--font-bricolage",
   display: "swap",
 });
 
@@ -25,7 +24,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-GB" className={poppins.variable}>
+    <html lang="en-GB" className={bricolage.variable}>
       <body>
         <StoreProvider>{children}</StoreProvider>
       </body>
