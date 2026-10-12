@@ -129,6 +129,7 @@ export interface Post {
   excerpt: string; // 150-160 chars, used for cards + meta description fallback
   content: string; // HTML string, sanitized on render
   coverColor?: string | null; // hex for the branded card/hero gradient, e.g. "#EFE8DC"
+  coverImage?: string | null; // real cover photo URL (upload or paste link); illustration is the fallback
   tags: string[];
   status: "published" | "draft";
   metaTitle?: string;

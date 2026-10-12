@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { Post } from "@/lib/types";
+import ImageUploadField from "../_image-upload";
 import { Card, ErrorBox, api, btnAdmin, btnAdminPrimary, fieldClass, labelClass } from "../_ui";
 
 const PRESET_COLORS = ["#EFE8DC", "#DCE5DA", "#E8DDC9", "#F5E6D3", "#E3D5C8", "#DCE4E8", "#E8DCE0", "#D5DCE5"];
@@ -40,6 +41,7 @@ export default function PostForm({ initial }: { initial?: Post }) {
   const [content, setContent] = useState(initial?.content ?? "");
   const [tags, setTags] = useState((initial?.tags ?? []).join(", "));
   const [coverColor, setCoverColor] = useState(initial?.coverColor ?? "#EFE8DC");
+  const [coverImage, setCoverImage] = useState(initial?.coverImage ?? "");
   const [metaTitle, setMetaTitle] = useState(initial?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(initial?.metaDescription ?? "");
   const [status, setStatus] = useState<"published" | "draft">(initial?.status ?? "draft");
@@ -68,6 +70,7 @@ export default function PostForm({ initial }: { initial?: Post }) {
         content,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         coverColor,
+        coverImage: coverImage.trim() || null,
         metaTitle: metaTitle.trim(),
         metaDescription: metaDescription.trim(),
         status,
@@ -198,6 +201,16 @@ export default function PostForm({ initial }: { initial?: Post }) {
               />
               <span className="text-[13px] text-muted">{coverColor}</span>
             </div>
+            <p className="text-[13px] text-muted mt-2">Used as the fallback behind the illustration when no cover photo is set.</p>
+          </div>
+          <div className="md:col-span-2">
+            <ImageUploadField
+              label="Cover photo"
+              hint="Upload from your device or paste a link. Shown on the blog cards and article hero; the illustration is used when empty."
+              folder="blog"
+              value={coverImage}
+              onChange={setCoverImage}
+            />
           </div>
         </div>
       </Card>

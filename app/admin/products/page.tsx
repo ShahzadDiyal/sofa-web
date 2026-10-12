@@ -182,14 +182,19 @@ export default function ProductsPage() {
                     <td className={tdClass}>
                       <div className="flex items-center gap-3.5">
                         <div className="w-[56px] rounded-[12px] overflow-hidden shrink-0">
-                          <SofaIllustration
-                            type={p.type}
-                            fabric={p.fabric}
-                            bg={p.bg}
-                            accent={p.accent}
-                            title={p.name}
-                            className="w-full aspect-square"
-                          />
+                          {p.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.imageUrl} alt={p.name} className="w-full aspect-square object-cover" />
+                          ) : (
+                            <SofaIllustration
+                              type={p.type}
+                              fabric={p.fabric}
+                              bg={p.bg}
+                              accent={p.accent}
+                              title={p.name}
+                              className="w-full aspect-square"
+                            />
+                          )}
                         </div>
                         <div>
                           <Link href={`/admin/products/${p.id}`} className="font-semibold underline">

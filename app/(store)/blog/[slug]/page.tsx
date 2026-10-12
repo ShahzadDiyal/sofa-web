@@ -131,13 +131,18 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           className="relative mt-8 aspect-[16/8] overflow-hidden rounded-[18px]"
           style={{ background: `linear-gradient(135deg, ${post.coverColor ?? "#EFE8DC"} 0%, #F8F5EE 100%)` }}
         >
-          <SofaIllustration
-            type="three"
-            fabric={post.coverColor ?? "#D8CBB4"}
-            bg={post.coverColor ?? "#EFE8DC"}
-            title={post.title}
-            className="absolute inset-0 m-auto h-[88%] w-[70%]"
-          />
+          {post.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.coverImage} alt={post.title} className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <SofaIllustration
+              type="three"
+              fabric={post.coverColor ?? "#D8CBB4"}
+              bg={post.coverColor ?? "#EFE8DC"}
+              title={post.title}
+              className="absolute inset-0 m-auto h-[88%] w-[70%]"
+            />
+          )}
         </div>
 
         {/* Key takeaway (AEO) */}

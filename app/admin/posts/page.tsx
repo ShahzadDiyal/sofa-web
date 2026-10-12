@@ -139,6 +139,7 @@ export default function PostsPage() {
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr>
+                  <th className={thClass}>Cover</th>
                   <th className={thClass}>Title</th>
                   <th className={thClass}>Tags</th>
                   <th className={thClass}>Read</th>
@@ -149,6 +150,19 @@ export default function PostsPage() {
               <tbody>
                 {pg.pageItems.map((p) => (
                   <tr key={p.id} className={busyId === p.id ? "opacity-50" : ""}>
+                    <td className={tdClass}>
+                      <div
+                        className="w-[64px] rounded-[10px] overflow-hidden shrink-0 aspect-[16/10]"
+                        style={p.coverImage ? undefined : { background: `linear-gradient(135deg, ${p.coverColor ?? "#EFE8DC"} 0%, #F8F5EE 100%)` }}
+                      >
+                        {p.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.coverImage} alt={p.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="sr-only">No cover photo</span>
+                        )}
+                      </div>
+                    </td>
                     <td className={tdClass}>
                       <Link href={`/admin/posts/${p.id}`} className="font-semibold text-ink hover:text-forest">
                         {p.title}

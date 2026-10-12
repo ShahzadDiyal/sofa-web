@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconCheck } from "@/components/Icons";
 import SofaIllustration from "@/components/SofaIllustration";
 import { gbp } from "@/lib/seo";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, OrderStatus, Product } from "@/lib/types";
 import {
   Card,
   CardTitle,
@@ -51,6 +51,7 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [photoByProductId, setPhotoByProductId] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -61,10 +62,16 @@ export default function OrderDetailPage() {
     Promise.all([
       api<{ order: Order }>(`/api/orders/${id}`).then((r) => r.order),
       api<{ orders: Order[] }>("/api/orders").then((r) => r.orders),
+      api<{ products: Product[] }>("/api/products")
+        .then((r) => r.products)
+        .catch(() => [] as Product[]),
     ])
-      .then(([o, all]) => {
+      .then(([o, all, products]) => {
         setOrder(o);
         setAllOrders(all);
+        const map: Record<string, string> = {};
+        for (const p of products) if (p.imageUrl) map[p.id] = p.imageUrl;
+        setPhotoByProductId(map);
       })
       .catch((e) => setError(e.message || "Could not load order."));
   };
@@ -322,7 +329,12 @@ export default function OrderDetailPage() {
             {order.items.map((it) => (
               <div key={it.productId} className="flex gap-4 items-center flex-wrap">
                 <div className="w-[92px] rounded-[14px] overflow-hidden shrink-0">
-                  <SofaIllustration type={it.type} fabric={it.fabric} bg={it.bg} title={it.name} className="w-full aspect-square" />
+                  {photoByProductId[it.productId] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoByProductId[it.productId]} alt={it.name} className="w-full aspect-square object-cover" />
+                  ) : (
+                    <SofaIllustration type={it.type} fabric={it.fabric} bg={it.bg} title={it.name} className="w-full aspect-square" />
+                  )}
                 </div>
                 <div className="flex-[1_1_200px]">
                   <div className="font-semibold text-[16px]">{it.name}</div>

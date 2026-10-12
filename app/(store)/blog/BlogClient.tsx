@@ -21,13 +21,23 @@ export function PostCard({ post }: { post: Post }) {
         className="relative aspect-[16/10] overflow-hidden"
         style={{ background: `linear-gradient(135deg, ${post.coverColor ?? "#EFE8DC"} 0%, #F8F5EE 100%)` }}
       >
-        <SofaIllustration
-          type="three"
-          fabric={post.coverColor ?? "#D8CBB4"}
-          bg={post.coverColor ?? "#EFE8DC"}
-          title={post.title}
-          className="absolute inset-0 m-auto h-[85%] w-[85%] transition duration-300 group-hover:scale-[1.04]"
-        />
+        {post.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <SofaIllustration
+            type="three"
+            fabric={post.coverColor ?? "#D8CBB4"}
+            bg={post.coverColor ?? "#EFE8DC"}
+            title={post.title}
+            className="absolute inset-0 m-auto h-[85%] w-[85%] transition duration-300 group-hover:scale-[1.04]"
+          />
+        )}
         {post.tags[0] && (
           <span className="absolute left-4 top-4 rounded-full bg-ink/70 px-3 py-1 text-[12px] font-semibold text-cream backdrop-blur">
             {post.tags[0]}
@@ -139,13 +149,23 @@ export default function BlogClient({ posts, tags }: { posts: Post[]; tags: strin
                 className="relative min-h-[240px]"
                 style={{ background: `linear-gradient(135deg, ${featured.coverColor ?? "#EFE8DC"} 0%, #F8F5EE 100%)` }}
               >
-                <SofaIllustration
-                  type="three"
-                  fabric={featured.coverColor ?? "#D8CBB4"}
-                  bg={featured.coverColor ?? "#EFE8DC"}
-                  title={featured.title}
-                  className="absolute inset-0 m-auto h-[85%] w-[85%] transition duration-300 group-hover:scale-[1.03]"
-                />
+                {featured.coverImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={featured.coverImage}
+                    alt={featured.title}
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                  />
+                ) : (
+                  <SofaIllustration
+                    type="three"
+                    fabric={featured.coverColor ?? "#D8CBB4"}
+                    bg={featured.coverColor ?? "#EFE8DC"}
+                    title={featured.title}
+                    className="absolute inset-0 m-auto h-[85%] w-[85%] transition duration-300 group-hover:scale-[1.03]"
+                  />
+                )}
               </div>
               <div className="flex flex-col justify-center gap-3 p-8 md:p-10">
                 <p className="label-caps text-terra">Latest guide</p>
