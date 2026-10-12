@@ -131,6 +131,10 @@ await importCollection("reviews", "reviews", (id, d) => ({
   rating: d.rating ?? 5, order: d.order ?? 0,
 }));
 
+await importCollection("faqs", "faqs", (id, d) => ({
+  id, q: N(d.q), a: N(d.a), order: d.order ?? 0,
+}));
+
 await importCollection("orders", "orders", (id, d) => ({
   id, number: d.number, publicToken: N(d.publicToken), items: J(d.items ?? []),
   subtotal: d.subtotal ?? 0, deliveryFee: d.deliveryFee ?? 0, discount: N(d.discount),
