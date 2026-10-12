@@ -70,8 +70,8 @@ export function ProductCard({ product }: { product: Product }) {
         {product.wasPrice && product.wasPrice > product.price && (
           <>
             <span className="text-muted text-sm line-through">{gbp(product.wasPrice)}</span>
-            <span className="rounded-full bg-[#B65A35] px-2.5 py-1 text-[11px] font-bold tracking-[0.06em] text-white uppercase">
-              Save {gbp(product.wasPrice - product.price)}
+            <span className="rounded-full bg-[#B65A35] px-2.5 py-1 text-[11px] font-bold tracking-[0.06em] text-white uppercase whitespace-nowrap">
+              Save {gbp(product.wasPrice - product.price)} ({Math.round(((product.wasPrice - product.price) / product.wasPrice) * 100)}% off)
             </span>
           </>
         )}

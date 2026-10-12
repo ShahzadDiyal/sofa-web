@@ -172,8 +172,8 @@ export default function ProductClient({
             {product.wasPrice && product.wasPrice > product.price && (
               <>
                 <span className="text-muted text-lg line-through">{gbp(product.wasPrice)}</span>
-                <span className="rounded-full bg-[#B65A35] px-3.5 py-1.5 text-[12px] font-bold tracking-[0.06em] text-white uppercase">
-                  Save {gbp(product.wasPrice - product.price)}
+                <span className="rounded-full bg-[#B65A35] px-3.5 py-1.5 text-[12px] font-bold tracking-[0.06em] text-white uppercase whitespace-nowrap">
+                  Save {gbp(product.wasPrice - product.price)} ({Math.round(((product.wasPrice - product.price) / product.wasPrice) * 100)}% off)
                 </span>
               </>
             )}
