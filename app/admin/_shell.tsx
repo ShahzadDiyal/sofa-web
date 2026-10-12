@@ -144,7 +144,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Logo variant="light" markSize={36} textSize={22} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
         </Link>
-        <nav className="flex flex-col gap-1" aria-label="Admin">
+        <nav
+          className="flex flex-col gap-1 overflow-y-auto min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="Admin"
+        >
           {nav}
         </nav>
         <div className="mt-auto flex items-center gap-3 p-3 bg-[#27463C] rounded-[14px]">
