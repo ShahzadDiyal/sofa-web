@@ -1906,6 +1906,16 @@ function rowToSettings(r: Record<string, unknown>): Partial<SiteSettings> {
     email: (r.email as string) ?? "",
     address: (r.address as string) ?? "",
     trustpilotRating: (r.trustpilotRating as string) ?? "",
+    footerTagline: (r.footerTagline as string) ?? "",
+    footerMenus: parseJson<SiteSettings["footerMenus"]>(r.footerMenus, []),
+    legalLinks: parseJson<SiteSettings["legalLinks"]>(r.legalLinks, []),
+    copyrightText: (r.copyrightText as string) ?? "",
+    footerHtml: (r.footerHtml as string) ?? "",
+    logoUrl: (r.logoUrl as string) ?? "",
+    faviconUrl: (r.faviconUrl as string) ?? "",
+    privacyHtml: (r.privacyHtml as string) ?? "",
+    termsHtml: (r.termsHtml as string) ?? "",
+    cookiesHtml: (r.cookiesHtml as string) ?? "",
   };
 }
 
@@ -1922,6 +1932,16 @@ function settingsToRow(id: string, s: SiteSettings): Record<string, unknown> {
     email: nullIfUndef(s.email),
     address: nullIfUndef(s.address),
     trustpilotRating: nullIfUndef(s.trustpilotRating),
+    footerTagline: nullIfUndef(s.footerTagline),
+    footerMenus: toJson(s.footerMenus ?? []),
+    legalLinks: toJson(s.legalLinks ?? []),
+    copyrightText: nullIfUndef(s.copyrightText),
+    footerHtml: nullIfUndef(s.footerHtml),
+    logoUrl: nullIfUndef(s.logoUrl),
+    faviconUrl: nullIfUndef(s.faviconUrl),
+    privacyHtml: nullIfUndef(s.privacyHtml),
+    termsHtml: nullIfUndef(s.termsHtml),
+    cookiesHtml: nullIfUndef(s.cookiesHtml),
   };
 }
 

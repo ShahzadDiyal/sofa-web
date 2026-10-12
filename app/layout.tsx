@@ -3,6 +3,7 @@ import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { baseMetadata } from "@/lib/seo";
+import { getSettings } from "@/lib/db";
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -10,11 +11,21 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  ...baseMetadata(),
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  manifest: "/manifest.webmanifest",
-};
+/* Favicon + logo are admin-editable (Admin → Settings → Logo & favicon). */
+export async function generateMetadata(): Promise<Metadata> {
+  let favicon = "/icon.svg";
+  try {
+    const s = await getSettings();
+    if (s.faviconUrl) favicon = s.faviconUrl;
+  } catch {
+    /* fall back to the bundled icon */
+  }
+  return {
+    ...baseMetadata(),
+    icons: { icon: favicon, apple: favicon },
+    manifest: "/manifest.webmanifest",
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1F3A32",

@@ -38,6 +38,12 @@ export default async function TermsPage() {
       <h1 className="text-[clamp(36px,4.5vw,54px)] leading-tight mb-8">
         Terms &amp; conditions
       </h1>
+      {s.termsHtml ? (
+        <div
+          className="legal-html text-[17px] leading-relaxed text-body [&_h2]:text-[26px] [&_h2]:leading-snug [&_h2]:text-ink [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-[20px] [&_h3]:text-ink [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1.5 [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: s.termsHtml }}
+        />
+      ) : (
       <div className="flex flex-col gap-6 text-[17px] leading-relaxed text-body">
         <p>
           These terms apply to every order placed with Sofora ({s.address}). By placing an
@@ -153,6 +159,7 @@ export default async function TermsPage() {
           or email <a className="underline" href={`mailto:${s.email}`}>{s.email}</a>.
         </p>
       </div>
+      )}
     </article>
   );
 }

@@ -307,6 +307,32 @@ export const seedSettings: SiteSettings = {
   email: "hello@sofora.example",
   address: "Sofora, Manchester, United Kingdom",
   trustpilotRating: "Excellent",
+  footerTagline: "Sofas only. Delivered across the UK, paid for on arrival.",
+  footerMenus: [
+    {
+      title: "Help",
+      links: [
+        { label: "How COD works", href: "/#how" },
+        { label: "Delivery policy", href: "/delivery" },
+        { label: "Returns", href: "/returns" },
+        { label: "Customer reviews", href: "/reviews" },
+        { label: "Blog", href: "/blog" },
+        { label: "Contact", href: "/contact" },
+      ],
+    },
+  ],
+  legalLinks: [
+    { label: "Privacy", href: "/privacy" },
+    { label: "Cookies", href: "/cookies" },
+    { label: "Terms", href: "/terms" },
+  ],
+  copyrightText: "",
+  footerHtml: "",
+  logoUrl: "",
+  faviconUrl: "",
+  privacyHtml: "",
+  termsHtml: "",
+  cookiesHtml: "",
 };
 
 export const seedSteps = [
