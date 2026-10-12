@@ -39,6 +39,7 @@ export default function FlashSaleBanner({ sale }: { sale: FlashSale }) {
           src={sale.imageUrl}
           alt=""
           aria-hidden
+          loading="lazy"
           className="absolute inset-0 w-full h-full object-cover"
         />
       ) : (

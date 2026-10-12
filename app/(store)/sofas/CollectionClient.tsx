@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Category, Color, Product } from "@/lib/types";
@@ -12,6 +12,7 @@ import { IconCash, IconShield, IconTruck } from "@/components/Icons";
 const SEATS = [1, 2, 3, 4];
 const FABRICS = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
 const FEATURES = ["Sofa bed", "Reclining", "Storage"];
+const PAGE_SIZE = 24;
 /* Fallback palette if the managed colour library can't be reached. */
 const FALLBACK_COLOURS: { name: string; hex: string }[] = [
   { name: "Oat", hex: "#D8CBB4" },
@@ -26,8 +27,66 @@ const FALLBACK_COLOURS: { name: string; hex: string }[] = [
 
 type Sort = "best" | "price-asc" | "price-desc" | "newest";
 
-function Check({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+/* Page-number list with ellipsis for long page counts. */
+function pageList(pageCount: number, current: number): (number | "…")[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+  const nums = [...new Set([1, pageCount, current - 1, current, current + 1])]
+    .filter((n) => n >= 1 && n <= pageCount)
+    .sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  nums.forEach((n, i) => {
+    if (i > 0 && n - nums[i - 1] > 1) out.push("…");
+    out.push(n);
+  });
+  return out;
+}
+
+function Pagination({ page, pageCount, onGo }: { page: number; pageCount: number; onGo: (p: number) => void }) {
+  const btn =
+    "min-w-[44px] min-h-[44px] px-3 rounded-full border-[1.5px] text-[15px] font-medium grid place-items-center transition-colors disabled:opacity-40";
   return (
+    <nav className="flex items-center justify-center gap-2 mt-12 flex-wrap" aria-label="Pagination">
+      <button
+        type="button"
+        onClick={() => onGo(page - 1)}
+        disabled={page <= 1}
+        className={`${btn} border-line bg-white hover:border-ink`}
+        aria-label="Previous page"
+      >
+        ←
+      </button>
+      {pageList(pageCount, page).map((p, i) =>
+        p === "…" ? (
+          <span key={`e${i}`} className="text-muted px-1" aria-hidden>
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onGo(p)}
+            aria-current={p === page ? "page" : undefined}
+            aria-label={`Page ${p}`}
+            className={`${btn} ${p === page ? "bg-forest border-forest text-cream" : "border-line bg-white hover:border-ink"}`}
+          >
+            {p}
+          </button>
+        )
+      )}
+      <button
+        type="button"
+        onClick={() => onGo(page + 1)}
+        disabled={page >= pageCount}
+        className={`${btn} border-line bg-white hover:border-ink`}
+        aria-label="Next page"
+      >
+        →
+      </button>
+    </nav>
+  );
+}
+
+function Check({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {  return (
     <label className="flex items-center gap-3 py-2 cursor-pointer min-h-[44px] text-[15px]">
       <input type="checkbox" checked={on} onChange={onToggle} className="sr-only" />
       <span
@@ -67,6 +126,8 @@ export default function CollectionClient({
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState<Sort>("best");
+  const [page, setPage] = useState(1);
+  const gridTopRef = useRef<HTMLDivElement>(null);
   /* Colour filter swatches come from the managed library (Admin → Colours). */
   const [libColors, setLibColors] = useState<Color[] | null>(null);
   useEffect(() => {
@@ -118,6 +179,18 @@ export default function CollectionClient({
   const activeCat = categories.find((c) => c.slug === cat);
   const hasFilters =
     cat || seats.length || fabrics.length || colours.length || features.length || minPrice || maxPrice || saleOnly || q;
+
+  /* Pagination: 24 per page; reset to page 1 whenever the result set changes. */
+  useEffect(() => {
+    setPage(1);
+  }, [cat, q, saleOnly, seats, fabrics, colours, features, minPrice, maxPrice, sort]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const goToPage = (p: number) => {
+    setPage(Math.min(Math.max(1, p), pageCount));
+    gridTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const clearAll = () => {
     setCat(""); setSeats([]); setFabrics([]); setColours([]); setFeatures([]);
     setMinPrice(""); setMaxPrice(""); setSaleOnly(false);
@@ -156,7 +229,9 @@ export default function CollectionClient({
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm text-muted" role="status">
-              {filtered.length} {filtered.length === 1 ? "sofa" : "sofas"}
+              {filtered.length === 0
+                ? "No sofas"
+                : `Showing ${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)} of ${filtered.length} ${filtered.length === 1 ? "sofa" : "sofas"}`}
             </span>
             <label className="flex items-center gap-2 text-sm font-medium">
               Sort
@@ -262,7 +337,7 @@ export default function CollectionClient({
                 >
                   {c.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.imageUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={c.imageUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <span className="sr-only">{c.name}</span>
                   )}
@@ -305,7 +380,7 @@ export default function CollectionClient({
         </aside>
 
         {/* Grid */}
-        <div className="flex-1 basis-[560px] min-w-0">
+        <div className="flex-1 basis-[560px] min-w-0" ref={gridTopRef}>
           {filtered.length === 0 ? (
             <div className="text-center py-24 flex flex-col items-center gap-4">
               <h2 className="text-3xl">No sofas match those filters</h2>
@@ -315,11 +390,16 @@ export default function CollectionClient({
               </button>
             </div>
           ) : (
-            <div className="grid gap-x-7 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-x-7 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+                {pageItems.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+              {pageCount > 1 && (
+                <Pagination page={safePage} pageCount={pageCount} onGo={goToPage} />
+              )}
+            </>
           )}
         </div>
       </div>

@@ -214,6 +214,7 @@ export default function ProductClient({
                     <img
                       src={c.swatchImage}
                       alt=""
+                      loading="lazy"
                       className="w-full h-full object-cover"
                       style={{ outline: `2px solid ${colorIdx === i ? "#1F3A32" : "#DDD3C4"}`, outlineOffset: "-2px" }}
                     />
