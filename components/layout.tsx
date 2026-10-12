@@ -84,7 +84,7 @@ function ProductTile({ product }: { product: Product }) {
 
 function ShimmerTiles() {
   return (
-    <div className="grid grid-cols-2 gap-4" aria-hidden>
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-5" aria-hidden>
       {[0, 1, 2, 3].map((i) => (
         <div key={i} className="flex flex-col gap-2">
           <div className="rounded-[18px] aspect-[4/3] skeleton" />
@@ -156,6 +156,24 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   })();
 
+  /* Most popular PRODUCTS in a menu group — real photos first, then
+     featured/rating order. */
+  const popularFor = (cats: Category[]) => {
+    const catSlugs = new Set(cats.map((c) => c.slug));
+    return (products ?? [])
+      .filter((p) => catSlugs.has(p.category) && p.inStock !== false)
+      .sort((a, b) => {
+        const ai = a.imageUrl ? 0 : 1;
+        const bi = b.imageUrl ? 0 : 1;
+        if (ai !== bi) return ai - bi;
+        if (!!a.featured !== !!b.featured) return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      })
+      .slice(0, 4);
+  };
+  const openCats = menuGroups.find(([label]) => label === openMenu)?.[1] ?? [];
+  const openPopular = popularFor(openCats);
+
   return (
     <header className="bg-cream border-b border-line sticky top-0 z-40">
       <div className="mx-auto px-6 flex items-center gap-6 py-4">
@@ -171,25 +189,11 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
         </Link>
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
-          {menuGroups.map(([label, cats]) => {
-            /* Most popular PRODUCTS in this menu group — real photos first,
-               then featured/rating order. */
-            const catSlugs = new Set(cats.map((c) => c.slug));
-            const popular = (products ?? [])
-              .filter((p) => catSlugs.has(p.category) && p.inStock !== false)
-              .sort((a, b) => {
-                const ai = a.imageUrl ? 0 : 1;
-                const bi = b.imageUrl ? 0 : 1;
-                if (ai !== bi) return ai - bi;
-                if (!!a.featured !== !!b.featured) return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-                return (b.rating ?? 0) - (a.rating ?? 0);
-              })
-              .slice(0, 4);
+          {menuGroups.map(([label]) => {
             const isOpen = openMenu === label;
             return (
               <div
                 key={label}
-                className="relative"
                 onMouseEnter={() => showMenu(label)}
                 onMouseLeave={scheduleHide}
               >
@@ -206,60 +210,6 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                     className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                   />
                 </Link>
-                {isOpen && (
-                  <div className="absolute left-0 top-full pt-2 z-50">
-                    <div className="w-[640px] bg-white rounded-[24px] border border-line shadow-[0_24px_70px_-20px_rgba(31,58,50,0.35)] p-6 grid grid-cols-[1fr_1.4fr] gap-7">
-                      <div>
-                        <p className="label-caps mb-3">Shop by category</p>
-                        {categories === null ? (
-                          <div className="flex flex-col gap-2.5" aria-hidden>
-                            {[0, 1, 2, 3, 4].map((i) => (
-                              <div key={i} className="h-5 w-4/5 rounded-full skeleton" />
-                            ))}
-                          </div>
-                        ) : (
-                          <ul className="flex flex-col">
-                            {cats.map((c) => (
-                              <li key={c.slug}>
-                                <Link
-                                  href={`/sofas?category=${c.slug}`}
-                                  onClick={() => setOpenMenu(null)}
-                                  className="flex items-center justify-between gap-3 py-2 rounded-xl px-2 -mx-2 hover:bg-cream text-[14px]"
-                                >
-                                  <span className="font-medium">{c.name}</span>
-                                  <span className="text-[12px] text-muted tabular-nums">
-                                    {counts[c.slug] ?? 0}
-                                  </span>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <Link
-                          href="/sofas"
-                          onClick={() => setOpenMenu(null)}
-                          className="inline-block mt-3 text-[14px] font-semibold text-forest underline underline-offset-4"
-                        >
-                          View all {label.toLowerCase()}
-                        </Link>
-                      </div>
-                      <div>
-                        <p className="label-caps mb-3">Most popular</p>
-                        {products === null ? (
-                          <ShimmerTiles />
-                        ) : (
-                          <div className="grid grid-cols-2 gap-4">
-                            {popular.map((p) => (
-                              <div key={p.slug} onClick={() => setOpenMenu(null)}>
-                                <ProductTile product={p} />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -305,6 +255,84 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
           </Link>
         </div>
       </div>
+
+      {/* Full-width mega menu panel (desktop) */}
+      {openMenu && (
+        <div
+          className="absolute inset-x-0 top-full z-50 hidden lg:block"
+          onMouseEnter={() => showMenu(openMenu)}
+          onMouseLeave={scheduleHide}
+          onClick={() => setOpenMenu(null)}
+        >
+          <div className="mega-menu-in bg-white border-y border-line shadow-[0_36px_70px_-28px_rgba(31,58,50,0.35)]">
+            <div className="mx-auto px-6 lg:px-10 py-8 lg:py-10 max-w-[1440px] grid gap-10 lg:grid-cols-[minmax(360px,470px)_1fr]">
+              <div>
+                <p className="label-caps mb-4">Shop by category</p>
+                {categories === null ? (
+                  <div className="grid grid-cols-2 gap-2.5" aria-hidden>
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-[60px] rounded-[14px] skeleton" />
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="grid sm:grid-cols-2 gap-x-3">
+                    {openCats.map((c) => (
+                      <li key={c.slug}>
+                        <Link
+                          href={`/sofas?category=${c.slug}`}
+                          className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-[14px] hover:bg-cream transition-colors group/cat"
+                        >
+                          <span className="w-11 h-11 rounded-[12px] overflow-hidden bg-cream flex-none grid place-items-center">
+                            {c.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={c.imageUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[15px] font-semibold text-forest/60">
+                                {c.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-medium text-[14px] flex-1 leading-snug">{c.name}</span>
+                          <span className="text-[12px] text-muted tabular-nums bg-cream group-hover/cat:bg-white rounded-full px-2 py-0.5 transition-colors">
+                            {counts[c.slug] ?? 0}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  href="/sofas"
+                  className="inline-flex items-center gap-2 mt-5 text-[14px] font-semibold text-forest underline underline-offset-4 hover:opacity-70"
+                >
+                  View all {openMenu.toLowerCase()}
+                  <span aria-hidden>→</span>
+                </Link>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="label-caps">Most popular</p>
+                  <Link
+                    href="/sofas"
+                    className="text-[13px] font-semibold text-terra underline underline-offset-4 hover:opacity-70"
+                  >
+                    Shop bestsellers
+                  </Link>
+                </div>
+                {products === null ? (
+                  <ShimmerTiles />
+                ) : (
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+                    {openPopular.map((p) => (
+                      <ProductTile key={p.slug} product={p} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {searchOpen && (
         <form

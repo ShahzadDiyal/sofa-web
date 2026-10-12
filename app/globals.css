@@ -183,3 +183,23 @@ details.faq .faq-answer {
     animation: none;
   }
 }
+
+/* Full-width mega menu panel */
+@keyframes mega-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.mega-menu-in {
+  animation: mega-menu-in 0.22s cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mega-menu-in {
+    animation: none;
+  }
+}
