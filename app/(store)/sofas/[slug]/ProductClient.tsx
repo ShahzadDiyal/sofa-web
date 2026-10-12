@@ -101,7 +101,7 @@ export default function ProductClient({
 
   return (
     <>
-      <section className="mx-auto max-w-7xl px-6 flex flex-wrap gap-14 pt-7 pb-[88px] items-start">
+      <section className="mx-auto px-6 flex flex-wrap gap-14 pt-7 pb-[88px] items-start">
         {/* Gallery */}
         <div className="flex-1 basis-[520px] min-w-0 flex flex-col gap-4">
           <div className="rounded-[28px] overflow-hidden">
@@ -293,7 +293,7 @@ export default function ProductClient({
 
       {/* Related */}
       <section className="bg-sand">
-        <div className="mx-auto max-w-7xl px-6 py-20">
+        <div className="mx-auto px-6 py-20">
           <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
             <h2 className="text-[clamp(30px,3.4vw,42px)]">You might also like</h2>
             <Link href="/sofas" className="font-semibold border-b-[1.5px] border-ink pb-0.5 hover:opacity-70">

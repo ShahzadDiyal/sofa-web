@@ -46,7 +46,7 @@ export default async function BlogPage() {
       <JsonLd data={itemList} />
       <Suspense
         fallback={
-          <div className="mx-auto max-w-7xl px-6 py-16" aria-label="Loading articles">
+          <div className="mx-auto px-6 py-16" aria-label="Loading articles">
             <div className="skeleton h-10 w-2/3 max-w-md rounded-full" />
             <div className="skeleton h-5 w-1/2 max-w-sm rounded-full mt-4" />
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 mt-12">

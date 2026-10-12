@@ -158,7 +158,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
     <div className="min-h-screen bg-cream">
       <SlimHeader />
 
-      <div className="mx-auto max-w-7xl px-6 pt-10 pb-24">
+      <div className="mx-auto px-6 pt-10 pb-24">
         <h1 className="text-[clamp(34px,4vw,48px)] mb-2">Checkout</h1>
         <p className="text-body mb-8">No payment today. You&apos;ll pay the driver when your sofa arrives.</p>
 
@@ -435,7 +435,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
 function SlimHeader() {
   return (
     <header className="bg-cream border-b border-line">
-      <div className="mx-auto max-w-7xl px-6 flex items-center justify-between gap-4 flex-wrap py-[18px]">
+      <div className="mx-auto px-6 flex items-center justify-between gap-4 flex-wrap py-[18px]">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Sofora home">
           <span className="w-[38px] h-[38px] rounded-full bg-forest grid place-items-center text-cream">
             <IconSofa size={20} />

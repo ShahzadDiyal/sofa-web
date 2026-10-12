@@ -87,7 +87,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       />
       <JsonLd data={faqJsonLd(faqs)} />
 
-      <div className="mx-auto max-w-7xl px-6 pt-7">
+      <div className="mx-auto px-6 pt-7">
         <Breadcrumbs
           trail={[
             { name: "Home", href: "/" },

@@ -64,7 +64,7 @@ export default async function CollectionPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-7xl px-6 py-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading sofas">
+        <div className="mx-auto px-6 py-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading sofas">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex flex-col gap-3">
               <div className="skeleton aspect-square rounded-[18px]" />

@@ -46,7 +46,7 @@ export default async function HomePage() {
       <JsonLd data={itemListJsonLd(bestsellers, "Bestselling sofas at Sofora", "/")} />
 
       {/* ── Hero ── */}
-      <section className="mx-auto max-w-7xl px-6 pt-14 pb-20 flex flex-wrap gap-12 items-center">
+      <section className="mx-auto px-6 pt-14 pb-20 flex flex-wrap gap-12 items-center">
         <div className="flex-1 basis-[460px] flex flex-col gap-7">
           <span className="self-start inline-flex items-center gap-2 bg-mint text-forest rounded-full px-3.5 py-1.5 text-sm font-medium">
             <IconCash size={16} /> Cash on delivery across the UK
@@ -109,7 +109,7 @@ export default async function HomePage() {
 
       {/* ── How it works ── */}
       <section id="how" className="bg-forest text-cream scroll-mt-20">
-        <div className="mx-auto max-w-7xl px-6 py-[88px]">
+        <div className="mx-auto px-6 py-[88px]">
           <div className="flex flex-wrap justify-between items-end gap-5 mb-12">
             <div className="flex flex-col gap-3">
               <span className="label-caps text-peach!">How it works</span>
@@ -138,7 +138,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Shop by style ── */}
-      <section className="mx-auto max-w-7xl px-6 py-24">
+      <section className="mx-auto px-6 py-24">
         <div className="flex flex-wrap justify-between items-end gap-4 mb-9">
           <h2 className="text-[clamp(32px,3.6vw,44px)]">Shop by style</h2>
           <Link
@@ -185,7 +185,7 @@ export default async function HomePage() {
 
       {/* ── Bestsellers ── */}
       <section className="bg-sand">
-        <div className="mx-auto max-w-7xl px-6 py-24">
+        <div className="mx-auto px-6 py-24">
           <div className="flex flex-wrap justify-between items-end gap-4 mb-9">
             <div className="flex flex-col gap-2.5">
               <span className="label-caps">Bestsellers</span>
@@ -204,7 +204,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Why ── */}
-      <section className="mx-auto max-w-7xl px-6 py-24">
+      <section className="mx-auto px-6 py-24">
         <div className="grid gap-12 md:grid-cols-3">
           {seedWhy.map((w) => (
             <div key={w.t} className="flex flex-col gap-3.5 border-t-2 border-ink pt-6">
@@ -217,7 +217,7 @@ export default async function HomePage() {
 
       {/* ── Reviews ── */}
       <section className="bg-peach">
-        <div className="mx-auto max-w-7xl px-6 py-24">
+        <div className="mx-auto px-6 py-24">
           <div className="flex flex-col gap-2.5 mb-9">
             <span className="label-caps text-terra!">Customer reviews</span>
             <h2 className="text-[clamp(32px,3.6vw,44px)]">
@@ -244,7 +244,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="mx-auto max-w-7xl px-6 py-24 flex flex-wrap gap-14">
+      <section className="mx-auto px-6 py-24 flex flex-wrap gap-14">
         <div className="flex-1 basis-[320px] flex flex-col gap-3.5">
           <span className="label-caps">Questions</span>
           <h2 className="text-[clamp(32px,3.6vw,44px)] leading-tight">

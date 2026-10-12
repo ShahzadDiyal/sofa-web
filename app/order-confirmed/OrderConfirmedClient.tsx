@@ -35,7 +35,7 @@ export default function OrderConfirmedClient() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="bg-cream border-b border-line">
-        <div className="mx-auto max-w-7xl px-6 py-[18px]">
+        <div className="mx-auto px-6 py-[18px]">
           <Link href="/" className="inline-flex items-center gap-2.5" aria-label="Sofora home">
             <span className="w-[38px] h-[38px] rounded-full bg-forest grid place-items-center text-cream">
               <IconSofa size={20} />
@@ -45,7 +45,7 @@ export default function OrderConfirmedClient() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 pt-14 pb-24 flex flex-col gap-8">
+      <div className="mx-auto px-6 pt-14 pb-24 flex flex-col gap-8">
         <div className="flex flex-col items-center text-center gap-4">
           <span className="w-[72px] h-[72px] rounded-full bg-[#DDEFE3] grid place-items-center text-[#2F7D4F]">
             <IconCheck size={34} strokeWidth={2.5} />

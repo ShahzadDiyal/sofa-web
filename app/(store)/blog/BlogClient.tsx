@@ -73,7 +73,7 @@ export default function BlogClient({ posts, tags }: { posts: Post[]; tags: strin
   const [featured, ...rest] = filtered;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12 md:py-16">
+    <div className="mx-auto px-6 py-12 md:py-16">
       {/* Hero */}
       <p className="label-caps text-terra">The Sofora Journal</p>
       <h1 className="mt-2 max-w-2xl text-4xl font-semibold leading-tight text-ink md:text-5xl">

@@ -21,7 +21,7 @@ export default function WishlistClient() {
   const saved = products?.filter((p) => wishlist.includes(p.id)) ?? [];
 
   return (
-    <div className="mx-auto max-w-7xl px-6 pt-10 pb-24">
+    <div className="mx-auto px-6 pt-10 pb-24">
       <h1 className="text-[clamp(34px,4vw,48px)] mb-2">Wishlist</h1>
       <p className="text-body mb-10">
         {saved.length === 0

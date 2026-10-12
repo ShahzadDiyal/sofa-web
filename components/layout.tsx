@@ -98,7 +98,7 @@ function ShimmerTiles() {
 export function AnnouncementBar({ messages }: { messages: string[] }) {
   return (
     <div className="bg-forest text-cream text-sm">
-      <div className="mx-auto max-w-7xl px-6 flex gap-9 flex-wrap justify-center py-2.5">
+      <div className="mx-auto px-6 flex gap-9 flex-wrap justify-center py-2.5">
         {messages.map((m) => (
           <span key={m}>{m}</span>
         ))}
@@ -158,7 +158,7 @@ export function Header() {
 
   return (
     <header className="bg-cream border-b border-line sticky top-0 z-40">
-      <div className="mx-auto max-w-7xl px-6 flex items-center gap-6 py-4">
+      <div className="mx-auto px-6 flex items-center gap-6 py-4">
         <button
           className="lg:hidden w-11 h-11 grid place-items-center rounded-full"
           aria-label="Open menu"
@@ -314,7 +314,7 @@ export function Header() {
             if (!q.trim()) e.preventDefault();
           }}
         >
-          <div className="mx-auto max-w-7xl px-6 py-3 flex gap-3">
+          <div className="mx-auto px-6 py-3 flex gap-3">
             <input
               name="q"
               value={q}
@@ -438,7 +438,7 @@ export function Footer({
 }) {
   return (
     <footer className="bg-forest text-mint">
-      <div className="mx-auto max-w-7xl px-6 pt-16 pb-10 flex flex-wrap gap-10">
+      <div className="mx-auto px-6 pt-16 pb-10 flex flex-wrap gap-10">
         <div className="flex-[2_1_280px] flex flex-col gap-3.5">
           <Logo variant="light" textSize={30} markSize={40} />
           <p className="leading-relaxed max-w-[36ch] text-[15px]">
@@ -471,7 +471,7 @@ export function Footer({
         </div>
       </div>
       <div className="border-t border-forest-deep">
-        <div className="mx-auto max-w-7xl px-6 py-5 text-[13px] text-mint/70 flex flex-wrap gap-4 justify-between">
+        <div className="mx-auto px-6 py-5 text-[13px] text-mint/70 flex flex-wrap gap-4 justify-between">
           <span>© 2026 Sofora. All rights reserved.</span>
           <span className="flex gap-5">
             <Link href="/privacy" className="hover:opacity-70">Privacy</Link>

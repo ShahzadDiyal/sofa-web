@@ -135,7 +135,7 @@ export default function CollectionClient({
     <>
       <JsonLd data={itemListJsonLd(filtered, activeCat ? `${activeCat.name} at Sofora` : "All sofas at Sofora", "/sofas")} />
 
-      <div className="mx-auto max-w-7xl px-6 pt-8 pb-5">
+      <div className="mx-auto px-6 pt-8 pb-5">
         <Breadcrumbs
           trail={[{ name: "Home", href: "/" }, { name: activeCat ? activeCat.name : "All sofas" }]}
         />
@@ -208,7 +208,7 @@ export default function CollectionClient({
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-6 flex flex-wrap gap-10 pt-4 pb-24 items-start">
+      <div className="mx-auto px-6 flex flex-wrap gap-10 pt-4 pb-24 items-start">
         {/* Filters */}
         <aside className="flex-none w-full md:w-[250px] flex flex-col" aria-label="Filters">
           <div className="flex justify-between items-center pb-4">
@@ -326,14 +326,14 @@ export default function CollectionClient({
 
       {/* Reassurance band */}
       <section className="bg-forest text-cream">
-        <div className="mx-auto max-w-7xl px-6 py-11 flex flex-wrap gap-6 justify-center text-[15px] font-medium">
+        <div className="mx-auto px-6 py-11 flex flex-wrap gap-6 justify-center text-[15px] font-medium">
           <span className="flex items-center gap-2.5"><IconCash size={20} /> Nothing to pay online</span>
           <span className="flex items-center gap-2.5"><IconTruck size={20} /> Free UK delivery over {gbp(500)}</span>
           <span className="flex items-center gap-2.5"><IconShield size={20} /> Inspect at the door first</span>
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-6 py-10 text-center">
+      <div className="mx-auto px-6 py-10 text-center">
         <Link href="/#how" className="font-semibold border-b-[1.5px] border-ink pb-0.5 hover:opacity-70">
           How pay on delivery works
         </Link>

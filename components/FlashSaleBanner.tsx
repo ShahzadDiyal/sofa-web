@@ -65,7 +65,7 @@ export default function FlashSaleBanner({ sale }: { sale: FlashSale }) {
     </>
   );
   const cls =
-    "relative block overflow-hidden rounded-[28px] mx-auto max-w-7xl px-0 my-4 min-h-[280px] flex items-stretch";
+    "relative block overflow-hidden rounded-[28px] mx-auto px-0 my-4 min-h-[280px] flex items-stretch";
   return sale.linkUrl ? (
     <Link href={sale.linkUrl} className={cls} aria-label={sale.title}>
       {inner}

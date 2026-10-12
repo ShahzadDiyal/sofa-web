@@ -59,7 +59,7 @@ export default async function ReviewsPage({
   }));
 
   return (
-    <div className="mx-auto max-w-7xl px-6 pt-12 pb-24">
+    <div className="mx-auto px-6 pt-12 pb-24">
       <p className="label-caps mb-3">Reviews</p>
       <h1 className="text-[clamp(36px,4.5vw,54px)] leading-tight mb-4">What our customers say</h1>
       <div className="flex items-center gap-4 flex-wrap mb-10">
