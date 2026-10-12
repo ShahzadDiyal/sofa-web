@@ -4,15 +4,18 @@ export default function Logo({
   variant = "dark",
   markSize = 38,
   textSize = 27,
+  src,
 }: {
   variant?: "dark" | "light";
   markSize?: number;
   textSize?: number;
+  /** Override the logo image (Admin → Settings → Logo & favicon). */
+  src?: string;
 }) {
   return (
     <span className="inline-flex items-center gap-2.5">
       <Image
-        src="/brand/sofora-mark.png"
+        src={src || "/brand/sofora-mark.png"}
         alt="Sofora logo"
         width={markSize}
         height={markSize}

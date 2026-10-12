@@ -150,6 +150,28 @@ export interface SiteSettings {  announcementBar: string[];
   email: string;
   address: string;
   trustpilotRating: string;
+  /* Footer + branding (all editable from Admin → Settings). */
+  footerTagline: string;
+  footerMenus: FooterMenu[];
+  legalLinks: FooterLink[];
+  copyrightText: string;
+  footerHtml: string;
+  logoUrl: string;
+  faviconUrl: string;
+  /* Legal pages: pasted HTML overrides the built-in copy when non-empty. */
+  privacyHtml: string;
+  termsHtml: string;
+  cookiesHtml: string;
+}
+
+export interface FooterLink {
+  label: string;
+  href: string;
+}
+
+export interface FooterMenu {
+  title: string;
+  links: FooterLink[];
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {

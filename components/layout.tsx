@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import type { Category, Product } from "@/lib/types";
+import type { Category, FooterLink, FooterMenu, Product } from "@/lib/types";
 import {
   IconBasket,
   IconChevronDown,
@@ -107,7 +107,7 @@ export function AnnouncementBar({ messages }: { messages: string[] }) {
   );
 }
 
-export function Header() {
+export function Header({ logoUrl }: { logoUrl?: string }) {
   const { basketCount, wishlist } = useStore();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -167,7 +167,7 @@ export function Header() {
           <IconMenu />
         </button>
         <Link href="/" className="flex items-center gap-2.5" aria-label="Sofora home">
-          <Logo />
+          <Logo src={logoUrl || undefined} />
         </Link>
 
         <nav className="hidden lg:flex gap-7 flex-1 font-medium text-[15px]" aria-label="Primary">
@@ -337,7 +337,7 @@ export function Header() {
           <div className="absolute inset-0 bg-ink/40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-cream p-6 flex flex-col gap-2 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <Logo textSize={24} markSize={34} />
+              <Logo textSize={24} markSize={34} src={logoUrl || undefined} />
               <button
                 className="w-11 h-11 grid place-items-center rounded-full hover:bg-sand"
                 aria-label="Close menu"
@@ -433,17 +433,34 @@ export function Footer({
   settings,
   shopLinks,
 }: {
-  settings: { phone: string; email: string; address: string };
+  settings: {
+    phone: string;
+    email: string;
+    address: string;
+    footerTagline: string;
+    footerMenus: FooterMenu[];
+    legalLinks: FooterLink[];
+    copyrightText: string;
+    footerHtml: string;
+    logoUrl: string;
+  };
   shopLinks: { label: string; href: string }[];
 }) {
+  const year = new Date().getFullYear();
   return (
     <footer className="bg-forest text-mint">
       <div className="mx-auto px-6 pt-16 pb-10 flex flex-wrap gap-10">
         <div className="flex-[2_1_280px] flex flex-col gap-3.5">
-          <Logo variant="light" textSize={30} markSize={40} />
-          <p className="leading-relaxed max-w-[36ch] text-[15px]">
-            Sofas only. Delivered across the UK, paid for on arrival.
-          </p>
+          <Logo variant="light" textSize={30} markSize={40} src={settings.logoUrl || undefined} />
+          {settings.footerTagline && (
+            <p className="leading-relaxed max-w-[36ch] text-[15px]">{settings.footerTagline}</p>
+          )}
+          {settings.footerHtml && (
+            <div
+              className="text-[14px] leading-relaxed max-w-[40ch] [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: settings.footerHtml }}
+            />
+          )}
         </div>
         <nav className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]" aria-label="Shop">
           <span className="label-caps text-peach! mb-1.5">Shop</span>
@@ -454,15 +471,20 @@ export function Footer({
             </Link>
           ))}
         </nav>
-        <nav className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]" aria-label="Help">
-          <span className="label-caps text-peach! mb-1.5">Help</span>
-          <Link href="/#how" className="hover:opacity-70">How COD works</Link>
-          <Link href="/delivery" className="hover:opacity-70">Delivery policy</Link>
-          <Link href="/returns" className="hover:opacity-70">Returns</Link>
-          <Link href="/reviews" className="hover:opacity-70">Customer reviews</Link>
-          <Link href="/blog" className="hover:opacity-70">Blog</Link>
-          <Link href="/contact" className="hover:opacity-70">Contact</Link>
-        </nav>
+        {settings.footerMenus.map((menu) => (
+          <nav
+            key={menu.title}
+            className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]"
+            aria-label={menu.title}
+          >
+            <span className="label-caps text-peach! mb-1.5">{menu.title}</span>
+            {menu.links.map((l) => (
+              <Link key={`${l.href}-${l.label}`} href={l.href} className="hover:opacity-70">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        ))}
         <div className="flex-1 min-w-[200px] flex flex-col gap-2.5 text-[15px]">
           <span className="label-caps text-peach! mb-1.5">Contact</span>
           <a href={`tel:${settings.phone.replace(/\s/g, "")}`} className="hover:opacity-70">{settings.phone}</a>
@@ -472,11 +494,13 @@ export function Footer({
       </div>
       <div className="border-t border-forest-deep">
         <div className="mx-auto px-6 py-5 text-[13px] text-mint/70 flex flex-wrap gap-4 justify-between">
-          <span>© 2026 Sofora. All rights reserved.</span>
+          <span>{settings.copyrightText || `© ${year} Sofora. All rights reserved.`}</span>
           <span className="flex gap-5">
-            <Link href="/privacy" className="hover:opacity-70">Privacy</Link>
-            <Link href="/cookies" className="hover:opacity-70">Cookies</Link>
-            <Link href="/terms" className="hover:opacity-70">Terms</Link>
+            {settings.legalLinks.map((l) => (
+              <Link key={`${l.href}-${l.label}`} href={l.href} className="hover:opacity-70">
+                {l.label}
+              </Link>
+            ))}
           </span>
         </div>
       </div>

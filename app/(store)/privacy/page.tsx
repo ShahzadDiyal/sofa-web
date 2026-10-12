@@ -32,6 +32,12 @@ export default async function PrivacyPage() {
       />
       <p className="label-caps mb-3">Privacy policy</p>
       <h1 className="text-[clamp(36px,4.5vw,54px)] leading-tight mb-8">Privacy policy</h1>
+      {s.privacyHtml ? (
+        <div
+          className="legal-html text-[17px] leading-relaxed text-body [&_h2]:text-[26px] [&_h2]:leading-snug [&_h2]:text-ink [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-[20px] [&_h3]:text-ink [&_h3]:mt-6 [&_h3]:mb-3 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1.5 [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: s.privacyHtml }}
+        />
+      ) : (
       <div className="flex flex-col gap-6 text-[17px] leading-relaxed text-body">
         <p>
           Sofora ({s.address}) is the data controller for the personal data described in
@@ -158,6 +164,7 @@ export default async function PrivacyPage() {
 
         <p className="text-[15px] text-muted">Last updated: October 2026.</p>
       </div>
+      )}
     </article>
   );
 }

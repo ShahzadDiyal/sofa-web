@@ -194,7 +194,17 @@ CREATE TABLE IF NOT EXISTS settings (
   phone VARCHAR(64) NULL,
   email VARCHAR(255) NULL,
   address TEXT NULL,
-  trustpilotRating VARCHAR(32) NULL
+  trustpilotRating VARCHAR(32) NULL,
+  footerTagline TEXT NULL,
+  footerMenus TEXT NULL,
+  legalLinks TEXT NULL,
+  copyrightText TEXT NULL,
+  footerHtml MEDIUMTEXT NULL,
+  logoUrl TEXT NULL,
+  faviconUrl TEXT NULL,
+  privacyHtml MEDIUMTEXT NULL,
+  termsHtml MEDIUMTEXT NULL,
+  cookiesHtml MEDIUMTEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /* Order-number counter (replaces the Firestore meta/counters doc). */
