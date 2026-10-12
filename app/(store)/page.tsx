@@ -81,18 +81,13 @@ export default async function HomePage() {
         </div>
         <div className="flex-1 basis-[480px] relative">
           <div className="rounded-[32px] overflow-hidden">
-            {heroProducts.length >= 4 ? (
-              <div className="grid grid-cols-2 aspect-[1/1.05]">
-                {heroProducts.map((p) => (
-                  <img
-                    key={p.id}
-                    src={p.imageUrl}
-                    alt={p.name}
-                    className="w-full h-full object-cover"
-                    loading="eager"
-                  />
-                ))}
-              </div>
+            {heroProducts.length > 0 ? (
+              <img
+                src={heroProducts[0].imageUrl}
+                alt={heroProducts[0].name}
+                className="w-full aspect-[1/1.05] object-cover"
+                loading="eager"
+              />
             ) : (
               <SofaIllustration
                 type="three"
