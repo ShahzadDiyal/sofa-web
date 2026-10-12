@@ -39,6 +39,7 @@ export default async function HomePage() {
   const inStock = products.filter((p) => p.inStock);
   const featured = inStock.filter((p) => p.featured).slice(0, 4);
   const bestsellers = featured.length > 0 ? featured : inStock.slice(0, 4);
+  const heroProducts = bestsellers.filter((p) => p.imageUrl).slice(0, 4);
   const catBySlug = new Map(categories.map((c) => [c.slug, c]));
 
   return (
@@ -80,14 +81,28 @@ export default async function HomePage() {
         </div>
         <div className="flex-1 basis-[480px] relative">
           <div className="rounded-[32px] overflow-hidden">
-            <SofaIllustration
-              type="three"
-              fabric="#C9824F"
-              bg="#DCE5DA"
-              accent="#F4E1D6"
-              title="Illustration of a Sofora three-seater sofa in terracotta weave"
-              className="w-full aspect-[1/1.05]"
-            />
+            {heroProducts.length >= 4 ? (
+              <div className="grid grid-cols-2 aspect-[1/1.05]">
+                {heroProducts.map((p) => (
+                  <img
+                    key={p.id}
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                  />
+                ))}
+              </div>
+            ) : (
+              <SofaIllustration
+                type="three"
+                fabric="#C9824F"
+                bg="#DCE5DA"
+                accent="#F4E1D6"
+                title="Illustration of a Sofora three-seater sofa in terracotta weave"
+                className="w-full aspect-[1/1.05]"
+              />
+            )}
           </div>
           <div className="absolute -left-3 bottom-7 bg-white rounded-[18px] px-5 py-4 flex gap-3.5 items-center shadow-[0_12px_32px_rgba(30,36,33,0.12)]">
             <span className="w-11 h-11 rounded-full bg-mint grid place-items-center text-forest">
