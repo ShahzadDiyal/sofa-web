@@ -256,14 +256,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Reviews ── */}
+      {/* ── Reviews: only rendered when real reviews exist ── */}
+      {homeReviews.length > 0 && (
       <section className="bg-peach">
         <div className="mx-auto px-6 py-24">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-9">
             <div className="flex flex-col gap-2.5">
               <span className="label-caps text-terra!">Customer reviews</span>
               <h2 className="text-[clamp(32px,3.6vw,44px)]">
-                {settings.trustpilotRating} on Trustpilot
+                What our customers say
               </h2>
             </div>
             <Link href="/reviews" className="btn btn-outline">
@@ -273,6 +274,7 @@ export default async function HomePage() {
           <ReviewsCarousel reviews={homeReviews} />
         </div>
       </section>
+      )}
 
       {/* ── FAQ ── */}
       <section className="mx-auto px-6 py-24 flex flex-wrap gap-14">

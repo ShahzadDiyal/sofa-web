@@ -153,18 +153,14 @@ export default function ProductClient({
               </span>
             )}
             <h1 className="text-[clamp(34px,4vw,48px)] leading-tight">{product.name}</h1>
-            {reviewStats.count > 0 ? (
+            {/* Reviews: shown only when the product has real reviews. */}
+            {reviewStats.count > 0 && (
               <a href="/reviews" className="flex items-center gap-2.5 text-sm text-body hover:text-ink w-fit">
                 <Stars rating={reviewStats.avg} />
                 <span className="underline underline-offset-2">
                   {reviewStats.avg.toFixed(1)} · {reviewStats.count} review{reviewStats.count === 1 ? "" : "s"}
                 </span>
               </a>
-            ) : (
-              <div className="flex items-center gap-2.5 text-sm text-body">
-                <Stars rating={5} />
-                <span>{product.reviewCount ?? 0} reviews</span>
-              </div>
             )}
           </div>
 
