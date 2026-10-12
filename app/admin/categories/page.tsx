@@ -18,6 +18,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 const TYPES: { value: SofaType; label: string }[] = [
   { value: "three", label: "Standard sofa" },
@@ -88,6 +89,7 @@ export default function CategoriesPage() {
     if (!needle) return list;
     return list.filter((c) => `${c.name} ${c.slug} ${c.blurb ?? ""}`.toLowerCase().includes(needle));
   }, [categories, q]);
+  const pg = usePagination(filtered);
 
   const openNew = () => {
     setForm({ ...emptyForm });
@@ -165,6 +167,7 @@ export default function CategoriesPage() {
             hint={q ? "Try a different search." : "Add your first category to organise the catalogue."}
           />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px]">
               <thead>
@@ -176,7 +179,7 @@ export default function CategoriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {pg.pageItems.map((c) => (
                   <tr key={c.id}>
                     <td className={tdClass}>
                       <div className="flex items-center gap-3.5">
@@ -211,6 +214,19 @@ export default function CategoriesPage() {
               </tbody>
             </table>
           </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
+          </div>
+          </>
         )}
       </Card>
 

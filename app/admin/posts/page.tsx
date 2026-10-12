@@ -17,6 +17,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 type Tab = "all" | "published" | "draft";
 
@@ -56,6 +57,7 @@ export default function PostsPage() {
           p.tags.some((t) => t.toLowerCase().includes(needle))
       );
   }, [posts, tab, q]);
+  const pg = usePagination(filtered);
 
   const setStatus = async (post: Post, status: "published" | "draft") => {
     setBusyId(post.id);
@@ -132,6 +134,7 @@ export default function PostsPage() {
         ) : filtered.length === 0 ? (
           <EmptyState title="No articles here" hint={q ? "Try a different search." : "Write your first guide with “New article”."} />
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">
               <thead>
@@ -144,7 +147,7 @@ export default function PostsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pg.pageItems.map((p) => (
                   <tr key={p.id} className={busyId === p.id ? "opacity-50" : ""}>
                     <td className={tdClass}>
                       <Link href={`/admin/posts/${p.id}`} className="font-semibold text-ink hover:text-forest">
@@ -185,6 +188,19 @@ export default function PostsPage() {
               </tbody>
             </table>
           </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
+          </div>
+          </>
         )}
       </Card>
     </div>

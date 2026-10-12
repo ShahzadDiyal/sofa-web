@@ -21,6 +21,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 export function ColorSwatch({ color, size = 40 }: { color: Pick<Color, "hex" | "imageUrl" | "name">; size?: number }) {
   const style = { width: size, height: size } as const;
@@ -80,6 +81,7 @@ export default function ColorsPage() {
     if (!needle) return colors ?? [];
     return (colors ?? []).filter((c) => c.name.toLowerCase().includes(needle));
   }, [colors, q]);
+  const pg = usePagination(filtered);
 
   const openNew = () => setForm({ ...emptyForm });
   const openEdit = (c: Color) => setForm({ id: c.id, name: c.name, hex: c.hex ?? "#D8CBB4", imageUrl: c.imageUrl ?? "" });
@@ -167,7 +169,7 @@ export default function ColorsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {pg.pageItems.map((c) => (
                   <tr key={c.id} className="border-t border-sand">
                     <td className={tdClass}>
                       <ColorSwatch color={c} />
@@ -197,6 +199,18 @@ export default function ColorsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         </Card>
       )}

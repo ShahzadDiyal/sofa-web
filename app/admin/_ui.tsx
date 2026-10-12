@@ -1,8 +1,9 @@
 "use client";
 
 /* Shared admin primitives: status pills, toggles, cards, tables, skeletons,
-   formatters, and the JSON API helper used by every admin page. */
+   formatters, pagination, and the JSON API helper used by every admin page. */
 
+import { useEffect, useRef, useState } from "react";
 import type { OrderStatus } from "@/lib/types";
 
 /* ---------- status pills (colors from SPEC §Order status badge colors) ---------- */
@@ -232,6 +233,142 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
     <div className="bg-white rounded-[20px] p-10 text-center flex flex-col items-center gap-2">
       <p className="font-serif text-[22px]">{title}</p>
       {hint && <p className="text-muted text-[14px]">{hint}</p>}
+    </div>
+  );
+}
+
+/* ---------- pagination (default 10 per page, adjustable) ---------- */
+
+export const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+/** Client-side pagination over an already-filtered list. Resets to page 1
+    whenever the list identity or page size changes. */
+export function usePagination<T>(items: T[]) {
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const pageCount = Math.max(1, Math.ceil(items.length / perPage));
+  const safePage = Math.min(Math.max(1, page), pageCount);
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    if (itemsRef.current !== items) {
+      itemsRef.current = items;
+      setPage(1);
+    }
+  }, [items]);
+  const start = (safePage - 1) * perPage;
+  return {
+    page: safePage,
+    setPage: (p: number) => setPage(Math.min(Math.max(1, p), pageCount)),
+    perPage,
+    setPerPage: (n: number) => {
+      setPerPage(n);
+      setPage(1);
+    },
+    pageCount,
+    pageItems: items.slice(start, start + perPage),
+    total: items.length,
+    from: items.length === 0 ? 0 : start + 1,
+    to: Math.min(start + perPage, items.length),
+  };
+}
+
+function adminPageList(pageCount: number, current: number): (number | "…")[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+  const nums = [...new Set([1, pageCount, current - 1, current, current + 1])]
+    .filter((n) => n >= 1 && n <= pageCount)
+    .sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  nums.forEach((n, i) => {
+    if (i > 0 && n - nums[i - 1] > 1) out.push("…");
+    out.push(n);
+  });
+  return out;
+}
+
+/** Pagination bar with per-page dropdown. Render under any admin list. */
+export function AdminPagination({
+  page,
+  pageCount,
+  perPage,
+  onPage,
+  onPerPage,
+  total,
+  from,
+  to,
+}: {
+  page: number;
+  pageCount: number;
+  perPage: number;
+  onPage: (p: number) => void;
+  onPerPage: (n: number) => void;
+  total: number;
+  from: number;
+  to: number;
+}) {
+  const btn =
+    "min-w-[40px] min-h-[40px] px-2.5 rounded-[10px] border text-[14px] font-medium grid place-items-center transition-colors disabled:opacity-40";
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
+      <span className="text-[13px] text-muted" role="status">
+        {total === 0 ? "No records" : `Showing ${from}–${to} of ${total}`}
+      </span>
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-2 text-[13px] text-muted">
+          Per page
+          <select
+            value={perPage}
+            onChange={(e) => onPerPage(Number(e.target.value))}
+            className="rounded-[10px] border border-line bg-white px-2.5 py-2 text-[14px] font-medium text-ink min-h-[40px]"
+            aria-label="Records per page"
+          >
+            {PER_PAGE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        {pageCount > 1 && (
+          <nav className="flex items-center gap-1.5" aria-label="Pagination">
+            <button
+              type="button"
+              onClick={() => onPage(page - 1)}
+              disabled={page <= 1}
+              className={`${btn} border-line bg-white hover:border-ink`}
+              aria-label="Previous page"
+            >
+              ←
+            </button>
+            {adminPageList(pageCount, page).map((p, i) =>
+              p === "…" ? (
+                <span key={`e${i}`} className="text-muted px-1 text-[14px]" aria-hidden>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPage(p)}
+                  aria-current={p === page ? "page" : undefined}
+                  aria-label={`Page ${p}`}
+                  className={`${btn} ${p === page ? "bg-forest border-forest text-cream" : "border-line bg-white hover:border-ink"}`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+            <button
+              type="button"
+              onClick={() => onPage(page + 1)}
+              disabled={page >= pageCount}
+              className={`${btn} border-line bg-white hover:border-ink`}
+              aria-label="Next page"
+            >
+              →
+            </button>
+          </nav>
+        )}
+      </div>
     </div>
   );
 }

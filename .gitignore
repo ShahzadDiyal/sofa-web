@@ -10,3 +10,6 @@ data/store.json
 # never commit real secrets
 vercel-import.env
 admin-credentials.txt
+
+# TypeScript build info (local only)
+tsconfig.tsbuildinfo

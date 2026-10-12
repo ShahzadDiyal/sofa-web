@@ -20,6 +20,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 type FormState = {
   id?: string;
@@ -76,6 +77,7 @@ export default function FlashSalesPage() {
     if (!needle) return sales ?? [];
     return (sales ?? []).filter((s) => `${s.title} ${s.subtitle ?? ""}`.toLowerCase().includes(needle));
   }, [sales, q]);
+  const pg = usePagination(filtered);
 
   const openNew = () => setForm({ ...emptyForm });
   const openEdit = (s: FlashSale) =>
@@ -175,7 +177,7 @@ export default function FlashSalesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s) => (
+                {pg.pageItems.map((s) => (
                   <tr key={s.id} className="border-t border-sand">
                     <td className={tdClass}>
                       <div className="w-[96px] h-[54px] rounded-[10px] overflow-hidden bg-cream border border-line">
@@ -208,6 +210,18 @@ export default function FlashSalesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         </Card>
       )}

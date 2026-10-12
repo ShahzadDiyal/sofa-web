@@ -5,10 +5,11 @@
    admin and user. Only accounts with the admin role can sign in at
    /admin/login. The last admin account can't be demoted or deleted. */
 
-import { useEffect, useState } from "react";
-import { IconTrash } from "@/components/Icons";
+import { useEffect, useMemo, useState } from "react";
+import { IconSearch, IconTrash } from "@/components/Icons";
 import type { AdminRole, AdminUser } from "@/lib/admin-users";
 import {
+  AdminPagination,
   Card,
   EmptyState,
   ErrorBox,
@@ -19,10 +20,12 @@ import {
   fieldClass,
   tdClass,
   thClass,
+  usePagination,
 } from "../_ui";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [q, setQ] = useState("");
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,6 +87,13 @@ export default function AdminUsersPage() {
   const fmtDate = (iso: string) =>
     iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return users ?? [];
+    return (users ?? []).filter((u) => `${u.email} ${u.role}`.toLowerCase().includes(needle));
+  }, [users, q]);
+  const pg = usePagination(filtered);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -136,10 +146,22 @@ export default function AdminUsersPage() {
       </Card>
 
       <Card>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2.5 border border-line rounded-[12px] px-3.5 min-h-[44px] flex-1 max-w-[320px] bg-white">
+            <IconSearch size={18} className="text-muted shrink-0" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search email or role"
+              aria-label="Search users"
+              className="bg-transparent outline-none text-[14px] w-full placeholder:text-muted/70"
+            />
+          </div>
+        </div>
         {users === null ? (
           <SkeletonTable rows={5} cols={4} />
-        ) : users.length === 0 ? (
-          <EmptyState title="No accounts yet" hint="Add the first admin account above." />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="No accounts yet" hint={q ? "Try a different search." : "Add the first admin account above."} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[14px]">
@@ -152,7 +174,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {pg.pageItems.map((u) => (
                   <tr key={u.email} className="border-t border-line">
                     <td className={tdClass}>
                       <span className="font-medium text-ink">{u.email}</span>
@@ -184,6 +206,20 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {users !== null && filtered.length > 0 && (
+          <div className="px-5 pb-5 pt-2">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         )}
       </Card>

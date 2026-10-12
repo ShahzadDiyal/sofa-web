@@ -19,6 +19,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 type FormState = {
   id?: string;
@@ -66,6 +67,7 @@ export default function CouponsPage() {
     if (!needle) return coupons ?? [];
     return (coupons ?? []).filter((c) => c.code.toLowerCase().includes(needle));
   }, [coupons, q]);
+  const pg = usePagination(filtered);
 
   const openNew = () => setForm({ ...emptyForm });
   const openEdit = (c: Coupon) =>
@@ -174,7 +176,7 @@ export default function CouponsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {pg.pageItems.map((c) => (
                   <tr key={c.id} className="border-t border-sand">
                     <td className={tdClass}>
                       <code className="font-semibold bg-cream rounded-lg px-2.5 py-1 text-[14px]">{c.code}</code>
@@ -203,6 +205,18 @@ export default function CouponsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         </Card>
       )}

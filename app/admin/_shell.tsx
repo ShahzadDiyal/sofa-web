@@ -24,6 +24,7 @@ import {
   IconTruck,
 } from "@/components/Icons";
 import { api } from "./_ui";
+import AdminSearch from "./_search";
 import type { ContactQuery, Order } from "@/lib/types";
 
 const NAV = [
@@ -144,6 +145,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Logo variant="light" markSize={36} textSize={22} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
         </Link>
+        <AdminSearch id="admin-global-search" />
         <nav
           className="flex flex-col gap-1 overflow-y-auto min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Admin"
@@ -175,6 +177,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Link href="/" className="ml-auto text-[13px] underline text-[#C9D6CC]">
             View store
           </Link>
+        </div>
+        <div className="px-4 pb-3">
+          <AdminSearch id="admin-global-search-mobile" />
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3" aria-label="Admin">
           {nav}

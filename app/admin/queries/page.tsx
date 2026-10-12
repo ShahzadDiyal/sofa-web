@@ -20,6 +20,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 const STATUS_STYLES: Record<ContactQuery["status"], string> = {
   new: "bg-terra/15 text-terra",
@@ -55,6 +56,7 @@ export default function QueriesPage() {
     }
     return list;
   }, [queries, q, statusFilter]);
+  const pg = usePagination(filtered);
 
   const openQuery = async (item: ContactQuery) => {
     setOpen(item);
@@ -154,7 +156,7 @@ export default function QueriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((x) => (
+                {pg.pageItems.map((x) => (
                   <tr
                     key={x.id}
                     className="border-t border-sand hover:bg-cream/50 cursor-pointer"
@@ -186,6 +188,18 @@ export default function QueriesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         </Card>
       )}

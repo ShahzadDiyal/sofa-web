@@ -7,6 +7,7 @@ import SofaIllustration from "@/components/SofaIllustration";
 import { gbp } from "@/lib/seo";
 import type { Category, Product } from "@/lib/types";
 import {
+  AdminPagination,
   Card,
   EmptyState,
   ErrorBox,
@@ -18,6 +19,7 @@ import {
   btnAdminPrimary,
   tdClass,
   thClass,
+  usePagination,
 } from "../_ui";
 
 type Tab = "all" | "live" | "draft";
@@ -71,6 +73,7 @@ export default function ProductsPage() {
           (p.sku ?? "").toLowerCase().includes(needle)
       );
   }, [products, tab, q]);
+  const pg = usePagination(filtered);
 
   const setLive = async (p: Product, live: boolean) => {
     setBusyId(p.id);
@@ -174,7 +177,7 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {pg.pageItems.map((p) => (
                   <tr key={p.id} className="hover:bg-[#FBF9F5]">
                     <td className={tdClass}>
                       <div className="flex items-center gap-3.5">
@@ -260,9 +263,16 @@ export default function ProductsPage() {
         )}
 
         <div className="flex justify-between items-center gap-3 flex-wrap px-5 py-4">
-          <span className="text-muted text-[14px]">
-            Showing {filtered.length} of {products?.length ?? 0}
-          </span>
+          <AdminPagination
+            page={pg.page}
+            pageCount={pg.pageCount}
+            perPage={pg.perPage}
+            onPage={pg.setPage}
+            onPerPage={pg.setPerPage}
+            total={pg.total}
+            from={pg.from}
+            to={pg.to}
+          />
           <Link href="/sofas" target="_blank" rel="noreferrer" className={btnAdmin}>
             View storefront
           </Link>

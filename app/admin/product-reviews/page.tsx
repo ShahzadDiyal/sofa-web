@@ -20,6 +20,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 export default function ProductReviewsPage() {
   const [reviews, setReviews] = useState<ProductReview[] | null>(null);
@@ -50,6 +51,7 @@ export default function ProductReviewsPage() {
     }
     return list;
   }, [reviews, q, productFilter]);
+  const pg = usePagination(filtered);
 
   const remove = async () => {
     if (!deleting) return;
@@ -126,7 +128,7 @@ export default function ProductReviewsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {pg.pageItems.map((r) => (
                   <tr key={r.id} className="border-t border-sand align-top">
                     <td className={tdClass + " whitespace-nowrap"}>
                       <Stars rating={r.rating} size={14} />
@@ -158,6 +160,18 @@ export default function ProductReviewsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-5 pb-5">
+            <AdminPagination
+              page={pg.page}
+              pageCount={pg.pageCount}
+              perPage={pg.perPage}
+              onPage={pg.setPage}
+              onPerPage={pg.setPerPage}
+              total={pg.total}
+              from={pg.from}
+              to={pg.to}
+            />
           </div>
         </Card>
       )}

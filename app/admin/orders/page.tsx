@@ -19,6 +19,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 type Tab = "all" | "new" | "confirmed" | "out_for_delivery" | "delivered" | "failed";
 
@@ -104,6 +105,7 @@ export default function OrdersPage() {
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [orders, tab, q]);
+  const pg = usePagination(filtered);
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -244,7 +246,7 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o) => (
+                {pg.pageItems.map((o) => (
                   <tr key={o.id} className="hover:bg-[#FBF9F5]">
                     <td className={tdClass}>
                       <input
@@ -305,9 +307,16 @@ export default function OrdersPage() {
         )}
 
         <div className="flex justify-between items-center gap-3 flex-wrap px-5 py-4">
-          <span className="text-muted text-[14px]">
-            Showing {filtered.length} of {orders?.length ?? 0}
-          </span>
+          <AdminPagination
+            page={pg.page}
+            pageCount={pg.pageCount}
+            perPage={pg.perPage}
+            onPage={pg.setPage}
+            onPerPage={pg.setPerPage}
+            total={pg.total}
+            from={pg.from}
+            to={pg.to}
+          />
         </div>
       </Card>
     </>

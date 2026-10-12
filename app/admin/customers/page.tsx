@@ -15,6 +15,7 @@ import {
   tdClass,
   thClass,
 } from "../_ui";
+import { AdminPagination, usePagination } from "../_ui";
 
 interface Customer {
   name: string;
@@ -67,6 +68,7 @@ export default function CustomersPage() {
         (c.email ?? "").toLowerCase().includes(needle)
     );
   }, [customers, q]);
+  const pg = usePagination(filtered);
 
   return (
     <>
@@ -115,7 +117,7 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => {
+                {pg.pageItems.map((c) => {
                   const latest = [...c.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
                   return (
                     <tr key={c.phone + c.name} className="hover:bg-[#FBF9F5]">
@@ -154,9 +156,16 @@ export default function CustomersPage() {
         )}
 
         <div className="px-5 py-4">
-          <span className="text-muted text-[14px]">
-            {filtered.length} customer{filtered.length === 1 ? "" : "s"}
-          </span>
+          <AdminPagination
+            page={pg.page}
+            pageCount={pg.pageCount}
+            perPage={pg.perPage}
+            onPage={pg.setPage}
+            onPerPage={pg.setPerPage}
+            total={pg.total}
+            from={pg.from}
+            to={pg.to}
+          />
         </div>
       </Card>
     </>
