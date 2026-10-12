@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getActiveFlashSale, getSettings, listCategories, listFaqs, listProducts, listReviews } from "@/lib/db";
+import { getActiveFlashSale, getSettings, listCategories, listFaqs, listProductReviews, listProducts } from "@/lib/db";
 import FlashSaleBanner from "@/components/FlashSaleBanner";
 import { seedSteps, seedWhy } from "@/lib/seed";
 import { absoluteUrl, defaultOgImage, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
-import { FaqPreview, JsonLd, ProductCard } from "@/components/storefront";
+import { FaqPreview, JsonLd, ProductCard, ReviewsCarousel } from "@/components/storefront";
 import { IconArrowRight, IconCash, IconPhone, IconShield, IconTruck } from "@/components/Icons";
 
 export const metadata: Metadata = {
@@ -28,14 +28,15 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [products, categories, faqs, reviews, settings, flashSale] = await Promise.all([
+  const [products, categories, faqs, productReviews, settings, flashSale] = await Promise.all([
     listProducts(),
     listCategories(),
     listFaqs(),
-    listReviews(),
+    listProductReviews(),
     getSettings(),
     getActiveFlashSale(),
   ]);
+  const homeReviews = productReviews.slice(0, 9);
   const inStock = products.filter((p) => p.inStock);
   const featured = inStock.filter((p) => p.featured).slice(0, 4);
   const bestsellers = featured.length > 0 ? featured : inStock.slice(0, 4);
@@ -228,28 +229,18 @@ export default async function HomePage() {
       {/* ── Reviews ── */}
       <section className="bg-peach">
         <div className="mx-auto px-6 py-24">
-          <div className="flex flex-col gap-2.5 mb-9">
-            <span className="label-caps text-terra!">Customer reviews</span>
-            <h2 className="text-[clamp(32px,3.6vw,44px)]">
-              {settings.trustpilotRating} on Trustpilot
-            </h2>
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-9">
+            <div className="flex flex-col gap-2.5">
+              <span className="label-caps text-terra!">Customer reviews</span>
+              <h2 className="text-[clamp(32px,3.6vw,44px)]">
+                {settings.trustpilotRating} on Trustpilot
+              </h2>
+            </div>
+            <Link href="/reviews" className="btn btn-outline">
+              View all reviews
+            </Link>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {reviews.map((r) => (
-              <figure
-                key={r.id}
-                className="m-0 bg-white rounded-[22px] p-7 flex flex-col gap-4"
-              >
-                <span className="text-terra tracking-[3px] text-[18px]" aria-label={`${r.rating} out of 5 stars`}>
-                  {"★".repeat(r.rating)}
-                </span>
-                <blockquote className="m-0 leading-relaxed text-[16px]">“{r.quote}”</blockquote>
-                <figcaption className="text-sm text-muted mt-auto">
-                  {r.author}, {r.location}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+          <ReviewsCarousel reviews={homeReviews} />
         </div>
       </section>
 

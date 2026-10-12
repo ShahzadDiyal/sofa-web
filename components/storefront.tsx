@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import type { Product } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { Product, ProductReview } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import SofaIllustration from "./SofaIllustration";
-import { IconCash, IconHeart } from "./Icons";
+import { IconArrowLeft, IconArrowRight, IconCash, IconHeart } from "./Icons";
 
 export function ProductCard({ product }: { product: Product }) {
   const { toggleWishlist, isWishlisted } = useStore();
@@ -109,8 +109,94 @@ export function FaqAccordion({ faqs }: { faqs: { q: string; a: string }[] }) {
 }
 
 /**
+ * Homepage reviews carousel: 9 real product reviews, 3 visible per view
+ * on desktop (2 on tablet, 1 on mobile). Prev/Next page through them;
+ * on the last page a "View all reviews" button appears.
+ */
+function usePerView() {
+  const [perView, setPerView] = useState(3);
+  useEffect(() => {
+    const sm = window.matchMedia("(max-width: 639px)");
+    const md = window.matchMedia("(max-width: 1023px)");
+    const update = () => setPerView(sm.matches ? 1 : md.matches ? 2 : 3);
+    update();
+    sm.addEventListener("change", update);
+    md.addEventListener("change", update);
+    return () => {
+      sm.removeEventListener("change", update);
+      md.removeEventListener("change", update);
+    };
+  }, []);
+  return perView;
+}
+
+export function ReviewsCarousel({ reviews }: { reviews: ProductReview[] }) {
+  const perView = usePerView();
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(reviews.length / perView));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = reviews.slice(safePage * perView, safePage * perView + perView);
+  const isLast = safePage >= pageCount - 1;
+
+  return (
+    <div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {visible.map((r) => (
+          <figure
+            key={r.id}
+            className="m-0 bg-white rounded-[22px] p-7 flex flex-col gap-4"
+          >
+            <span className="text-terra tracking-[3px] text-[18px]" aria-label={`${r.rating} out of 5 stars`}>
+              {"★".repeat(r.rating)}
+            </span>
+            {r.title && <strong className="text-[16px] leading-snug">{r.title}</strong>}
+            <blockquote className="m-0 leading-relaxed text-[16px]">“{r.body}”</blockquote>
+            <figcaption className="text-sm text-muted mt-auto">
+              {r.author}{r.location ? `, ${r.location}` : ""}
+              {r.productSlug && r.productName && (
+                <>
+                  {" "}on{" "}
+                  <Link href={`/sofas/${r.productSlug}`} className="underline hover:text-ink">
+                    {r.productName}
+                  </Link>
+                </>
+              )}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mt-8">
+        <button
+          type="button"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={safePage === 0}
+          className="btn btn-outline disabled:opacity-40"
+          aria-label="Previous reviews"
+        >
+          <IconArrowLeft size={18} /> Prev
+        </button>
+        <button
+          type="button"
+          onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+          disabled={isLast}
+          className="btn btn-outline disabled:opacity-40"
+          aria-label="Next reviews"
+        >
+          Next <IconArrowRight size={18} />
+        </button>
+        {isLast && (
+          <Link href="/reviews" className="btn btn-primary">
+            View all reviews
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Homepage FAQ preview: shows 5 FAQs, reveals 5 more per click,
- * and links to the full FAQ page. (Client component — needs useState.)
+ * and links to the full FAQ page.
  */
 export function FaqPreview({ faqs }: { faqs: { q: string; a: string }[] }) {
   const [visible, setVisible] = useState(5);

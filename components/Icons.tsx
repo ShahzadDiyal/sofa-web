@@ -98,6 +98,11 @@ export const IconArrowRight = (p: P) => (
     <path d="M5 12h14M12 5l7 7-7 7" />
   </svg>
 );
+export const IconArrowLeft = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M19 12H5M12 19l-7-7 7-7" />
+  </svg>
+);
 export const IconMenu = (p: P) => (
   <svg {...base(p)}>
     <line x1="4" x2="20" y1="6" y2="6" />
