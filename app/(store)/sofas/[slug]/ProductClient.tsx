@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Color, Faq, Product, SiteSettings } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import { ProductCard, Stars } from "@/components/storefront";
 import { IconCash, IconCheck, IconMinus, IconPlus, IconTruck } from "@/components/Icons";
@@ -56,6 +57,7 @@ export default function ProductClient({
 }) {
   const router = useRouter();
   const { addToBasket } = useStore();
+  const toast = useToast();
   const [libColors, setLibColors] = useState<Color[]>([]);
   useEffect(() => {
     fetch("/api/colors")
@@ -95,6 +97,7 @@ export default function ProductClient({
   };
   const addBasket = () => {
     addToBasket(product, qty);
+    toast.success("Added to basket", `${product.name} × ${qty}`);
     setAdded(true);
     setTimeout(() => setAdded(false), 2200);
   };
@@ -164,10 +167,15 @@ export default function ProductClient({
             )}
           </div>
 
-          <div className="flex items-baseline gap-3.5">
+          <div className="flex items-baseline gap-3.5 flex-wrap">
             <span className="font-serif font-semibold text-4xl">{gbp(product.price)}</span>
-            {product.wasPrice && (
-              <span className="text-muted text-lg line-through">{gbp(product.wasPrice)}</span>
+            {product.wasPrice && product.wasPrice > product.price && (
+              <>
+                <span className="text-muted text-lg line-through">{gbp(product.wasPrice)}</span>
+                <span className="rounded-full bg-[#B65A35] px-3.5 py-1.5 text-[12px] font-bold tracking-[0.06em] text-white uppercase">
+                  Save {gbp(product.wasPrice - product.price)}
+                </span>
+              </>
             )}
           </div>
 

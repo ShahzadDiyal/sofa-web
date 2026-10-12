@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { IconChevronDown, IconSearch } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import { gbp } from "@/lib/seo";
 import type { Order, OrderStatus } from "@/lib/types";
 import {
@@ -69,6 +70,7 @@ function toCsv(orders: Order[]): string {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -117,6 +119,7 @@ export default function OrdersPage() {
 
   const markConfirmed = async () => {
     setBusy(true);
+    const count = [...selected].filter((id) => orders?.find((x) => x.id === id)?.status === "new").length;
     try {
       await Promise.all(
         [...selected].map((id) => {
@@ -125,9 +128,13 @@ export default function OrdersPage() {
           return Promise.resolve();
         })
       );
+      setSelected(new Set());
+      toast.success(`${count} order${count === 1 ? "" : "s"} confirmed`, "Customers will be contacted to arrange delivery.");
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bulk update failed.");
+      const msg = e instanceof Error ? e.message : "Bulk update failed.";
+      setError(msg);
+      toast.error("Bulk update failed", msg);
     } finally {
       setBusy(false);
     }

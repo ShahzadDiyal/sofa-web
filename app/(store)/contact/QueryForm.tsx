@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { IconCheck } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 
 const inputCls =
   "w-full bg-white border-[1.5px] border-line rounded-[14px] px-4 min-h-[52px] text-[15px] outline-none focus:border-forest transition placeholder:text-muted/70";
@@ -18,6 +19,7 @@ export default function QueryForm() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const toast = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +34,11 @@ export default function QueryForm() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.");
       setSent(true);
+      toast.success("Message sent", "Thanks — we'll get back to you shortly.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(msg);
+      toast.error("Could not send message", msg);
     } finally {
       setSending(false);
     }

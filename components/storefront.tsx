@@ -5,12 +5,19 @@ import { useEffect, useState } from "react";
 import type { Product, ProductReview } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
+import { useToast } from "./toast";
 import SofaIllustration from "./SofaIllustration";
 import { IconArrowLeft, IconArrowRight, IconCash, IconHeart } from "./Icons";
 
 export function ProductCard({ product }: { product: Product }) {
   const { toggleWishlist, isWishlisted } = useStore();
+  const toast = useToast();
   const wished = isWishlisted(product.id);
+  const toggleWish = () => {
+    toggleWishlist(product.id);
+    if (wished) toast.info("Removed from wishlist", product.name);
+    else toast.success("Saved to wishlist", product.name);
+  };
 
   return (
     <div className="flex flex-col gap-3 group">
@@ -45,7 +52,7 @@ export function ProductCard({ product }: { product: Product }) {
           className="absolute right-3 top-3 w-[38px] h-[38px] rounded-full bg-white grid place-items-center shadow-sm hover:scale-105 transition-transform"
           aria-label={wished ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
           aria-pressed={wished}
-          onClick={() => toggleWishlist(product.id)}
+          onClick={toggleWish}
         >
           <span className={wished ? "text-terra" : "text-ink"}>
             <IconHeart size={19} filled={wished} />
@@ -58,10 +65,15 @@ export function ProductCard({ product }: { product: Product }) {
         </Link>
         <p className="text-muted text-sm mt-0.5">{product.sub}</p>
       </div>
-      <div className="flex items-baseline gap-2.5">
+      <div className="flex items-baseline gap-2.5 flex-wrap">
         <span className="font-serif font-semibold text-[22px]">{gbp(product.price)}</span>
-        {product.wasPrice && (
-          <span className="text-muted text-sm line-through">{gbp(product.wasPrice)}</span>
+        {product.wasPrice && product.wasPrice > product.price && (
+          <>
+            <span className="text-muted text-sm line-through">{gbp(product.wasPrice)}</span>
+            <span className="rounded-full bg-[#B65A35] px-2.5 py-1 text-[11px] font-bold tracking-[0.06em] text-white uppercase">
+              Save {gbp(product.wasPrice - product.price)}
+            </span>
+          </>
         )}
       </div>
       <span className="flex items-center gap-1.5 text-[13px] font-medium text-forest">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { Post } from "@/lib/types";
+import { useToast } from "@/components/toast";
 import ImageUploadField from "../_image-upload";
 import { Card, ErrorBox, api, btnAdmin, btnAdminPrimary, fieldClass, labelClass } from "../_ui";
 
@@ -49,6 +50,7 @@ export default function PostForm({ initial }: { initial?: Post }) {
   const [preview, setPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   const onTitle = (t: string) => {
     setTitle(t);
@@ -79,13 +81,17 @@ export default function PostForm({ initial }: { initial?: Post }) {
       };
       if (initial) {
         await api<{ post: Post }>(`/api/posts/${initial.id}`, "PUT", payload);
+        toast.success("Article updated", `“${title.trim()}” was saved.`);
       } else {
         await api<{ post: Post }>("/api/posts", "POST", payload);
+        toast.success("Article published", `“${title.trim()}” was saved.`);
       }
       router.push("/admin/posts");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save the article.");
+      const msg = e instanceof Error ? e.message : "Could not save the article.";
+      setError(msg);
+      toast.error("Could not save article", msg);
       setSaving(false);
     }
   };

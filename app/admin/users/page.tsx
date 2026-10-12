@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconSearch, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { AdminRole, AdminUser } from "@/lib/admin-users";
 import {
   AdminPagination,
@@ -27,6 +28,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [q, setQ] = useState("");
   const [error, setError] = useState("");
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<AdminRole>("user");
@@ -52,9 +54,12 @@ export default function AdminUsersPage() {
       setEmail("");
       setPassword("");
       setRole("user");
+      toast.success("Account added", `${email.trim()} can now sign in.`);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add user.");
+      const msg = err instanceof Error ? err.message : "Could not add user.";
+      setError(msg);
+      toast.error("Could not add account", msg);
     } finally {
       setAdding(false);
     }
@@ -64,9 +69,12 @@ export default function AdminUsersPage() {
     try {
       await api("/api/admin/users", "PATCH", { email: userEmail, role: next });
       setError("");
+      toast.success("Role updated", `${userEmail} is now ${next === "admin" ? "an admin" : "a standard user"}.`);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change role.");
+      const msg = err instanceof Error ? err.message : "Could not change role.";
+      setError(msg);
+      toast.error("Could not change role", msg);
     }
   };
 
@@ -76,9 +84,12 @@ export default function AdminUsersPage() {
     try {
       await api(`/api/admin/users?email=${encodeURIComponent(userEmail)}`, "DELETE");
       setError("");
+      toast.success("Account deleted", `${userEmail} can no longer sign in.`);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete user.");
+      const msg = err instanceof Error ? err.message : "Could not delete user.";
+      setError(msg);
+      toast.error("Could not delete account", msg);
     } finally {
       setDeleting(null);
     }

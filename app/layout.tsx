@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
+import { ToastProvider } from "@/components/toast";
 import { baseMetadata } from "@/lib/seo";
 import { getSettings } from "@/lib/db";
 
@@ -37,7 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en-GB" className={bricolage.variable}>
       <body>
-        <StoreProvider>{children}</StoreProvider>
+        <StoreProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </StoreProvider>
       </body>
     </html>
   );

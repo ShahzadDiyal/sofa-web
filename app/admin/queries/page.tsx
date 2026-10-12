@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconMail, IconSearch, IconTrash, IconX } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { ContactQuery } from "@/lib/types";
 import { QUERY_STATUS_LABELS } from "@/lib/types";
 import {
@@ -31,6 +32,7 @@ const STATUS_STYLES: Record<ContactQuery["status"], string> = {
 export default function QueriesPage() {
   const [queries, setQueries] = useState<ContactQuery[] | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ContactQuery["status"]>("all");
   const [open, setOpen] = useState<ContactQuery | null>(null);
@@ -78,8 +80,11 @@ export default function QueriesPage() {
       setQueries((qs) => (qs ?? []).map((x) => (x.id === open.id ? query : x)));
       setOpen(query);
       setReply(query.reply ?? "");
+      toast.success("Reply sent", "Your reply was saved to this query.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save reply.");
+      const msg = e instanceof Error ? e.message : "Could not save reply.";
+      setError(msg);
+      toast.error("Could not send reply", msg);
     } finally {
       setSaving(false);
     }
@@ -89,11 +94,14 @@ export default function QueriesPage() {
     if (!deleting) return;
     try {
       await api(`/api/queries/${deleting.id}`, "DELETE");
+      toast.success("Query deleted", "The message was removed from the inbox.");
       setDeleting(null);
       if (open?.id === deleting.id) setOpen(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete query", msg);
     }
   };
 

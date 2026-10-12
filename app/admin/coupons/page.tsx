@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTrash, IconX } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { Coupon } from "@/lib/types";
 import {
   Card,
@@ -50,6 +51,7 @@ const fromInputDate = (v: string) => (v ? new Date(v).toISOString() : "");
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[] | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -108,10 +110,13 @@ export default function CouponsPage() {
       };
       if (form.id) await api(`/api/coupons/${form.id}`, "PATCH", payload);
       else await api("/api/coupons", "POST", payload);
+      toast.success(form.id ? "Coupon updated" : "Coupon added", `Code “${form.code.trim().toUpperCase()}” was saved.`);
       setForm(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save coupon", msg);
     } finally {
       setSaving(false);
     }
@@ -121,10 +126,13 @@ export default function CouponsPage() {
     if (!deleting) return;
     try {
       await api(`/api/coupons/${deleting.id}`, "DELETE");
+      toast.success("Coupon deleted", `Code “${deleting.code}” was removed.`);
       setDeleting(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete coupon", msg);
     }
   };
 

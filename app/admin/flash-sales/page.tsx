@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTrash, IconX } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { FlashSale } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
 import {
@@ -60,6 +61,7 @@ function isLive(s: FlashSale): boolean {
 export default function FlashSalesPage() {
   const [sales, setSales] = useState<FlashSale[] | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -113,10 +115,13 @@ export default function FlashSalesPage() {
       };
       if (form.id) await api(`/api/flash-sales/${form.id}`, "PATCH", payload);
       else await api("/api/flash-sales", "POST", payload);
+      toast.success(form.id ? "Banner updated" : "Banner added", `“${form.title.trim()}” was saved.`);
       setForm(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save banner", msg);
     } finally {
       setSaving(false);
     }
@@ -126,10 +131,13 @@ export default function FlashSalesPage() {
     if (!deleting) return;
     try {
       await api(`/api/flash-sales/${deleting.id}`, "DELETE");
+      toast.success("Banner deleted", `“${deleting.title}” was removed.`);
       setDeleting(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete banner", msg);
     }
   };
 

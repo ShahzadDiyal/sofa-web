@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import {
   Card,
   CardTitle,
@@ -100,6 +101,7 @@ function fromServer(s: Record<string, unknown>): DeliveryState {
 export default function DeliverySettingsPage() {
   const [state, setState] = useState<DeliveryState | null>(null);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
@@ -135,8 +137,11 @@ export default function DeliverySettingsPage() {
         messages: state.messages,
       });
       setSavedAt(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+      toast.success("Delivery settings saved", "Your delivery rules are live on the storefront.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save delivery settings", msg);
     } finally {
       setSaving(false);
     }

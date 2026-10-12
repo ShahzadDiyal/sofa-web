@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import type { Category, Color, Product, SofaType } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
@@ -178,6 +179,7 @@ export default function SofaForm({ product }: { product?: Product }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   const parsed = useMemo(() => parseDetails(product?.details), [product]);
 
@@ -325,12 +327,16 @@ export default function SofaForm({ product }: { product?: Product }) {
       };
       if (product) {
         await api(`/api/products/${product.id}`, "PATCH", payload);
+        toast.success("Sofa updated", `“${name.trim()}” was saved.`);
       } else {
         await api("/api/products", "POST", payload);
+        toast.success("Sofa added", `“${name.trim()}” was added to the catalogue.`);
       }
       router.push("/admin/products");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save sofa", msg);
       setSaving(false);
     }
   };

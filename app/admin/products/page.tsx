@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import { gbp } from "@/lib/seo";
 import type { Category, Product } from "@/lib/types";
@@ -31,6 +32,7 @@ export default function ProductsPage() {
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const toast = useToast();
 
   const load = () => {
     setError("");
@@ -80,8 +82,11 @@ export default function ProductsPage() {
     try {
       const { product } = await api<{ product: Product }>(`/api/products/${p.id}`, "PATCH", { inStock: live });
       setProducts((all) => (all ?? []).map((x) => (x.id === p.id ? product : x)));
+      toast.success(p.name, live ? "Is now live on the store." : "Moved to drafts.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed.");
+      const msg = e instanceof Error ? e.message : "Update failed.";
+      setError(msg);
+      toast.error("Could not update sofa", msg);
     } finally {
       setBusyId(null);
     }
@@ -93,8 +98,11 @@ export default function ProductsPage() {
     try {
       await api(`/api/products/${p.id}`, "DELETE");
       setProducts((all) => (all ?? []).filter((x) => x.id !== p.id));
+      toast.success("Sofa deleted", `“${p.name}” was removed from the catalogue.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete sofa", msg);
     } finally {
       setBusyId(null);
     }

@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { Faq, FooterLink, FooterMenu, Review, SiteSettings } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
 import {
@@ -18,15 +19,6 @@ import {
   fieldClass,
   labelClass,
 } from "../_ui";
-
-function useSaved() {
-  const [msg, setMsg] = useState<string | null>(null);
-  const flash = (m: string) => {
-    setMsg(m);
-    window.setTimeout(() => setMsg(null), 3500);
-  };
-  return { msg, flash };
-}
 
 export default function ContentSettingsPage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
@@ -49,7 +41,7 @@ export default function ContentSettingsPage() {
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const { msg, flash } = useSaved();
+  const toast = useToast();
 
   const load = () => {
     setError("");
@@ -87,9 +79,11 @@ export default function ContentSettingsPage() {
     try {
       const { settings } = await api<{ settings: SiteSettings }>("/api/settings", "PATCH", patch);
       setSettings(settings);
-      flash(doneMsg);
+      toast.success(doneMsg);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save settings", msg);
     } finally {
       setBusy(null);
     }
@@ -100,9 +94,11 @@ export default function ContentSettingsPage() {
     try {
       const { faqs } = await api<{ faqs: Faq[] }>("/api/faqs", "PUT", { faqs: next });
       setFaqs(faqs);
-      flash("FAQs saved.");
+      toast.success("FAQs saved.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save FAQs", msg);
     } finally {
       setBusy(null);
     }
@@ -113,9 +109,11 @@ export default function ContentSettingsPage() {
     try {
       const { reviews } = await api<{ reviews: Review[] }>("/api/reviews", "PUT", { reviews: next });
       setReviews(reviews);
-      flash("Reviews saved.");
+      toast.success("Reviews saved.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save reviews", msg);
     } finally {
       setBusy(null);
     }
@@ -131,9 +129,6 @@ export default function ContentSettingsPage() {
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}
-      {msg && (
-        <div className="bg-[#DDEFE3] text-[#2F7D4F] rounded-[16px] px-5 py-3.5 text-[14px] font-semibold">{msg}</div>
-      )}
 
       {!ready ? (
         <div className="flex flex-col gap-5">

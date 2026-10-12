@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { IconCheck } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import { gbp } from "@/lib/seo";
 import type { Order, OrderStatus, Product } from "@/lib/types";
@@ -13,6 +14,7 @@ import {
   EmptyState,
   ErrorBox,
   Pill,
+  STATUS_META,
   Skeleton,
   StatusPill,
   UK_POSTCODE_RE,
@@ -53,6 +55,7 @@ export default function OrderDetailPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [photoByProductId, setPhotoByProductId] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [payMethod, setPayMethod] = useState("Cash");
@@ -84,8 +87,11 @@ export default function OrderDetailPage() {
       const { order: updated } = await patchOrder(order.id, status, noteText);
       setOrder(updated);
       setAllOrders((all) => all.map((o) => (o.id === updated.id ? updated : o)));
+      toast.success(`Order ${updated.number} updated`, `Status set to “${STATUS_META[status].label}”.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed.");
+      const msg = e instanceof Error ? e.message : "Update failed.";
+      setError(msg);
+      toast.error("Could not update order", msg);
     } finally {
       setBusy(false);
     }

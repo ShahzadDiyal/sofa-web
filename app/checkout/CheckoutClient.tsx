@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { SiteSettings } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import { IconCash, IconCheck, IconMinus, IconPlus, IconShield, IconSofa, IconTrash, IconTruck } from "@/components/Icons";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
@@ -44,6 +45,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
   });
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
+  const toast = useToast();
 
   /* Coupon code: validated server-side; the order total is re-validated
      again in createOrder so the client discount is never trusted. */
@@ -68,17 +70,27 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
       });
       const data = await res.json();
       if (!data.valid) {
-        if (!silent) setCouponMsg(data.reason || "That code didn't work.");
+        if (!silent) {
+          const reason = data.reason || "That code didn't work.";
+          setCouponMsg(reason);
+          toast.error("Coupon not applied", reason);
+        }
         setCoupon("");
         setDiscount(0);
         return false;
       }
       setCoupon(data.code);
       setDiscount(data.discount);
-      if (!silent) setCouponMsg("");
+      if (!silent) {
+        setCouponMsg("");
+        toast.success(`Code ${data.code} applied`, `You save ${gbp(data.discount)} on this order.`);
+      }
       return true;
     } catch {
-      if (!silent) setCouponMsg("Couldn't check that code — try again.");
+      if (!silent) {
+        setCouponMsg("Couldn't check that code — try again.");
+        toast.error("Coupon not applied", "Couldn't check that code — try again.");
+      }
       return false;
     } finally {
       if (!silent) setCouponChecking(false);
@@ -133,7 +145,9 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
         `/order-confirmed?order=${encodeURIComponent(data.order.number)}&t=${encodeURIComponent(data.order.publicToken ?? "")}`
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong placing your order.");
+      const msg = err instanceof Error ? err.message : "Something went wrong placing your order.";
+      setError(msg);
+      toast.error("Order not placed", msg);
       setPlacing(false);
     }
   }

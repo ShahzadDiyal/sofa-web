@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { IconSearch, IconTrash } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { Product, ProductReview } from "@/lib/types";
 import { Stars } from "@/components/storefront";
 import {
@@ -26,6 +27,7 @@ export default function ProductReviewsPage() {
   const [reviews, setReviews] = useState<ProductReview[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [deleting, setDeleting] = useState<ProductReview | null>(null);
@@ -57,10 +59,13 @@ export default function ProductReviewsPage() {
     if (!deleting) return;
     try {
       await api(`/api/product-reviews/${deleting.id}`, "DELETE");
+      toast.success("Review deleted", "The review was removed.");
       setDeleting(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete review", msg);
     }
   };
 

@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTrash, IconX } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import type { Color, Product } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
 import {
@@ -53,6 +54,7 @@ export default function ColorsPage() {
   const [colors, setColors] = useState<Color[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,10 +104,13 @@ export default function ColorsPage() {
       };
       if (form.id) await api(`/api/colors/${form.id}`, "PATCH", payload);
       else await api("/api/colors", "POST", payload);
+      toast.success(form.id ? "Colour updated" : "Colour added", `“${form.name.trim()}” was saved.`);
       setForm(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save colour", msg);
     } finally {
       setSaving(false);
     }
@@ -115,10 +120,13 @@ export default function ColorsPage() {
     if (!deleting) return;
     try {
       await api(`/api/colors/${deleting.id}`, "DELETE");
+      toast.success("Colour deleted", `“${deleting.name}” was removed.`);
       setDeleting(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete colour", msg);
     }
   };
 

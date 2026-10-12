@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus, IconSearch, IconTag, IconTrash, IconX } from "@/components/Icons";
+import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
 import type { Category, Product, SofaType } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
@@ -57,6 +58,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
+  const toast = useToast();
   const [q, setQ] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -107,13 +109,17 @@ export default function CategoriesPage() {
       const payload = { ...form, slug: form.slug || slugify(form.name), blurb: form.blurb || undefined, menu: form.menu.trim() || undefined, imageUrl: form.imageUrl.trim() || (form.id ? null : undefined) };
       if (form.id) {
         await api(`/api/categories/${form.id}`, "PUT", payload);
+        toast.success("Category updated", `“${form.name.trim()}” was saved.`);
       } else {
         await api("/api/categories", "POST", payload);
+        toast.success("Category added", `“${form.name.trim()}” was added.`);
       }
       setForm(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed.");
+      const msg = e instanceof Error ? e.message : "Save failed.";
+      setError(msg);
+      toast.error("Could not save category", msg);
     } finally {
       setSaving(false);
     }
@@ -123,10 +129,13 @@ export default function CategoriesPage() {
     if (!deleting) return;
     try {
       await api(`/api/categories/${deleting.id}`, "DELETE");
+      toast.success("Category deleted", `“${deleting.name}” was removed.`);
       setDeleting(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed.");
+      const msg = e instanceof Error ? e.message : "Delete failed.";
+      setError(msg);
+      toast.error("Could not delete category", msg);
     }
   };
 
