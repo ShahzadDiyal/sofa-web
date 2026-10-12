@@ -303,7 +303,7 @@ export const seedSettings: SiteSettings = {
   deliveryTimeText: "Most sofas are delivered within 7–14 days. We call you first to agree a delivery slot.",
   confirmationCallText: "We confirm every order by phone or text before dispatch to check your address and delivery slot.",
   refusalPolicy: "Inspect your sofa at the door before paying. If it isn't right, you can refuse delivery and you pay nothing.",
-  phone: "+44 161 000 0000",
+  phone: "+44 752 966 1726",
   email: "hello@sofora.example",
   address: "Sofora, Manchester, United Kingdom",
   trustpilotRating: "Excellent",

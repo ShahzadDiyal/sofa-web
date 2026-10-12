@@ -8,7 +8,7 @@
 - Type: Online-only furniture retailer
 - Tagline: "Sofas worth coming home to."
 - Service area: United Kingdom
-- Contact: phone +44 161 000 0000, email hello@sofora.example, address Sofora, Manchester, United Kingdom
+- Contact: phone +44 752 966 1726, email hello@sofora.example, address Sofora, Manchester, United Kingdom
   (placeholder contact details — the live site carries the real ones)
 
 ## The pay-on-delivery model (canonical)
