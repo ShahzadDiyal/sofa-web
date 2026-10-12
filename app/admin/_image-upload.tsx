@@ -72,6 +72,18 @@ export default function ImageUploadField({ value, onChange, folder = "uploads", 
             )}
           </div>
           {hint && <p className="text-muted text-[13px]">{hint}</p>}
+          <label className="flex flex-col gap-1.5 text-[13px] text-muted">
+            <span>or paste an image link</span>
+            <input
+              type="url"
+              inputMode="url"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="https://…"
+              aria-label={(label ? `${label} — ` : "") + "paste image link"}
+              className="rounded-[12px] border border-line bg-white px-3.5 min-h-[44px] text-[14px] text-ink outline-none placeholder:text-muted/70 focus:border-forest"
+            />
+          </label>
           {error && <p className="text-[13px] text-[#B3402F]">{error}</p>}
         </div>
       </div>

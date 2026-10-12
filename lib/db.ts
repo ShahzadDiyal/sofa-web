@@ -1894,29 +1894,45 @@ export async function getSettings(): Promise<SiteSettings> {
   );
 }
 
+/* NULL (never-saved, e.g. columns added by a later migration) keeps the seed
+   default: only non-null DB values override it. An admin-cleared field is
+   saved as "" and still overrides, as intended. */
 function rowToSettings(r: Record<string, unknown>): Partial<SiteSettings> {
-  return {
-    announcementBar: parseJson<string[]>(r.announcementBar, []),
-    freeDeliveryThreshold: toNum(r.freeDeliveryThreshold),
-    acceptedPayments: parseJson<SiteSettings["acceptedPayments"]>(r.acceptedPayments, []),
-    deliveryTimeText: (r.deliveryTimeText as string) ?? "",
-    confirmationCallText: (r.confirmationCallText as string) ?? "",
-    refusalPolicy: (r.refusalPolicy as string) ?? "",
-    phone: (r.phone as string) ?? "",
-    email: (r.email as string) ?? "",
-    address: (r.address as string) ?? "",
-    trustpilotRating: (r.trustpilotRating as string) ?? "",
-    footerTagline: (r.footerTagline as string) ?? "",
-    footerMenus: parseJson<SiteSettings["footerMenus"]>(r.footerMenus, []),
-    legalLinks: parseJson<SiteSettings["legalLinks"]>(r.legalLinks, []),
-    copyrightText: (r.copyrightText as string) ?? "",
-    footerHtml: (r.footerHtml as string) ?? "",
-    logoUrl: (r.logoUrl as string) ?? "",
-    faviconUrl: (r.faviconUrl as string) ?? "",
-    privacyHtml: (r.privacyHtml as string) ?? "",
-    termsHtml: (r.termsHtml as string) ?? "",
-    cookiesHtml: (r.cookiesHtml as string) ?? "",
+  const s: Partial<SiteSettings> = {};
+  const set = (key: string, v: unknown) => {
+    if (v !== null && v !== undefined) (s as Record<string, unknown>)[key] = v;
   };
+  set("announcementBar", parseJsonOrUndef<string[]>(r.announcementBar));
+  if (r.freeDeliveryThreshold !== null && r.freeDeliveryThreshold !== undefined)
+    s.freeDeliveryThreshold = toNum(r.freeDeliveryThreshold);
+  set("acceptedPayments", parseJsonOrUndef<SiteSettings["acceptedPayments"]>(r.acceptedPayments));
+  set("deliveryTimeText", strOrUndef(r.deliveryTimeText));
+  set("confirmationCallText", strOrUndef(r.confirmationCallText));
+  set("refusalPolicy", strOrUndef(r.refusalPolicy));
+  set("phone", strOrUndef(r.phone));
+  set("email", strOrUndef(r.email));
+  set("address", strOrUndef(r.address));
+  set("trustpilotRating", strOrUndef(r.trustpilotRating));
+  set("footerTagline", strOrUndef(r.footerTagline));
+  set("footerMenus", parseJsonOrUndef<SiteSettings["footerMenus"]>(r.footerMenus));
+  set("legalLinks", parseJsonOrUndef<SiteSettings["legalLinks"]>(r.legalLinks));
+  set("copyrightText", strOrUndef(r.copyrightText));
+  set("footerHtml", strOrUndef(r.footerHtml));
+  set("logoUrl", strOrUndef(r.logoUrl));
+  set("faviconUrl", strOrUndef(r.faviconUrl));
+  set("privacyHtml", strOrUndef(r.privacyHtml));
+  set("termsHtml", strOrUndef(r.termsHtml));
+  set("cookiesHtml", strOrUndef(r.cookiesHtml));
+  return s;
+}
+
+function strOrUndef(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+function parseJsonOrUndef<T>(v: unknown): T | undefined {
+  if (v === null || v === undefined) return undefined;
+  return parseJson<T>(v, undefined as T);
 }
 
 function settingsToRow(id: string, s: SiteSettings): Record<string, unknown> {

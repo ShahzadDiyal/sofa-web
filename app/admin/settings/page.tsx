@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
 import type { Faq, FooterLink, FooterMenu, Review, SiteSettings } from "@/lib/types";
+import ImageUploadField from "../_image-upload";
 import {
   Card,
   CardTitle,
@@ -238,33 +239,21 @@ export default function ContentSettingsPage() {
               Shown in the navbar, mobile menu and footer (logo), and the browser tab (favicon).
               Leave empty to use the built-in images.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass} htmlFor="s-logo">Logo image URL</label>
-                <input
-                  id="s-logo"
-                  className={fieldClass}
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://…"
-                />
-                {logoUrl && (
-                  <img src={logoUrl} alt="Logo preview" className="mt-3 h-12 w-auto rounded-[10px] bg-cream p-1" />
-                )}
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="s-favicon">Favicon image URL</label>
-                <input
-                  id="s-favicon"
-                  className={fieldClass}
-                  value={faviconUrl}
-                  onChange={(e) => setFaviconUrl(e.target.value)}
-                  placeholder="https://…"
-                />
-                {faviconUrl && (
-                  <img src={faviconUrl} alt="Favicon preview" className="mt-3 h-8 w-8 rounded" />
-                )}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <ImageUploadField
+                label="Logo"
+                hint="Used in the navbar, mobile drawer and footer."
+                folder="branding"
+                value={logoUrl}
+                onChange={setLogoUrl}
+              />
+              <ImageUploadField
+                label="Favicon"
+                hint="Browser tab icon — square works best."
+                folder="branding"
+                value={faviconUrl}
+                onChange={setFaviconUrl}
+              />
             </div>
           </Card>
 

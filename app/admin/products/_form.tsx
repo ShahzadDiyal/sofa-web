@@ -101,6 +101,8 @@ function ColourPhotoButton({ photo, onChange }: { photo?: string; onChange: (url
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [link, setLink] = useState("");
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setError("");
@@ -135,12 +137,36 @@ function ColourPhotoButton({ photo, onChange }: { photo?: string; onChange: (url
         >
           {uploading ? "Uploading…" : photo ? "Replace" : "Upload"}
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setLink(photo ?? "");
+            setLinkOpen((v) => !v);
+          }}
+          className="text-[12px] font-semibold underline underline-offset-2 whitespace-nowrap text-muted hover:text-ink"
+        >
+          {linkOpen ? "Hide link" : "Paste link"}
+        </button>
         {photo && !uploading && (
           <button type="button" onClick={() => onChange("")} className="text-[12px] text-muted hover:text-ink whitespace-nowrap">
             Remove
           </button>
         )}
       </div>
+      {linkOpen && (
+        <input
+          type="url"
+          inputMode="url"
+          value={link}
+          onChange={(e) => {
+            setLink(e.target.value);
+            onChange(e.target.value.trim());
+          }}
+          placeholder="https://…"
+          aria-label="Paste colour photo link"
+          className="rounded-[10px] border border-line bg-white px-2.5 py-1.5 text-[12px] w-[150px] outline-none placeholder:text-muted/70 focus:border-forest"
+        />
+      )}
       {error && <span className="text-[11px] text-[#B3402F]">{error}</span>}
       <input ref={inputRef} type="file" accept="image/*" className="hidden" aria-label="Upload colour photo" onChange={(e) => pick(e.target.files?.[0])} />
     </div>
@@ -410,10 +436,6 @@ export default function SofaForm({ product }: { product?: Product }) {
               value={imageUrl}
               onChange={setImageUrl}
             />
-            <div>
-              <label className={labelClass} htmlFor="f-img">Photo URL <span className="text-muted font-normal">(optional — paste instead of uploading; illustration is used when empty)</span></label>
-              <input id="f-img" className={fieldClass} value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://…" inputMode="url" />
-            </div>
           </Card>
 
           <Card>
