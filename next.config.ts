@@ -15,8 +15,27 @@ const nextConfig: NextConfig = {
         basePath: false,
         permanent: true,
       },
+      /* Keep the crawler endpoints reachable at the domain root after the /uk
+         move: domain.com/robots.txt and domain.com/sitemap.xml. */
+      {
+        source: "/robots.txt",
+        destination: "/uk/robots.txt",
+        basePath: false,
+        permanent: true,
+      },
+      {
+        source: "/sitemap.xml",
+        destination: "/uk/sitemap.xml",
+        basePath: false,
+        permanent: true,
+      },
     ];
   },
+  /* Crawlers only look at the domain root: with basePath, app/robots.ts and
+     app/sitemap.ts live at /uk/robots.txt and /uk/sitemap.xml, so the root
+     copies would 404. Rewrites can't point outside the basePath internally
+     (Next.js requires an external destination there), so use redirects —
+     crawlers follow them for both robots.txt and sitemap.xml. */
   images: {
     // Product imagery is rendered as vector SVG in v1; allow remote hosts
     // for when real photography is wired up via the admin panel.
