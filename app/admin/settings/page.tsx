@@ -631,26 +631,33 @@ export default function ContentSettingsPage() {
 
 function DatabaseCard() {
   const [status, setStatus] = useState<null | {
-    configured: boolean;
-    message?: string;
-    firestore?: Record<string, number>;
-    settingsExists?: boolean;
-    local?: Record<string, number>;
+    ok: boolean;
+    error?: string;
+    migrations?: { name: string; applied: boolean; appliedAt: string | null }[];
   }>(null);
-  const [result, setResult] = useState<null | { ok: boolean; migrated?: Record<string, number>; error?: string }>(null);
+  const [result, setResult] = useState<null | {
+    ok: boolean;
+    applied?: string[];
+    skipped?: string[];
+    error?: string;
+    failedMigration?: string;
+  }>(null);
   const [working, setWorking] = useState(false);
 
   const check = async () => {
     try {
       setStatus(await api<any>("/api/admin/migrate"));
     } catch (e) {
-      setStatus({ configured: false, message: e instanceof Error ? e.message : "Check failed." });
+      setStatus({ ok: false, error: e instanceof Error ? e.message : "Check failed." });
     }
   };
   useEffect(() => { check(); }, []);
 
+  const pending = (status?.migrations ?? []).filter((m) => !m.applied);
+
   const migrate = async () => {
-    if (!confirm("Copy all local products, categories, FAQs, reviews, orders and settings into Firestore? Collections that already have data will be skipped.")) return;
+    if (pending.length === 0) return;
+    if (!confirm(`Apply ${pending.length} pending database migration${pending.length === 1 ? "" : "s"}? This adds the missing tables and columns (fabrics, coupons, flash sales, notifications, audit logs, tracking). Safe to re-run.`)) return;
     setWorking(true);
     setResult(null);
     try {
@@ -666,46 +673,51 @@ function DatabaseCard() {
   return (
     <Card>
       <div className="flex justify-between items-center gap-3 flex-wrap">
-        <h2 className="text-[22px]">Database</h2>
+        <h2 className="text-[22px]">Database migrations</h2>
         <button className={btnAdmin} onClick={check}>Refresh status</button>
       </div>
       <p className="text-muted text-[14px] -mt-2">
-        The site currently runs on its built-in local database. Connect Firestore with the service-account key,
-        then migrate everything over with one click.
+        Applies pending schema updates (new tables and columns) to the live database with one click —
+        no phpMyAdmin needed. Already-applied migrations are skipped automatically.
       </p>
       {!status ? (
         <Skeleton className="h-[90px]" />
-      ) : !status.configured ? (
+      ) : !status.ok ? (
         <div className="bg-[#F8EAC8] text-[#9A6A12] rounded-[14px] px-5 py-4 text-[14px] font-medium leading-relaxed">
-          Firestore is not connected yet. {status.message ?? "Add the service-account key to the server env, then refresh."}
+          {status.error ?? "Could not reach the database."}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="flex gap-2.5 flex-wrap text-[13px]">
-            {Object.entries(status.local ?? {}).map(([k, v]) => (
-              <span key={k} className="bg-cream rounded-full px-3.5 py-1.5 font-medium">
-                Local {k}: <strong>{v}</strong>
-              </span>
+          <div className="flex flex-col gap-2">
+            {(status.migrations ?? []).map((m) => (
+              <div key={m.name} className="flex items-center gap-3 bg-cream rounded-[12px] px-4 py-2.5 text-[14px]">
+                <span className="font-mono text-[13px]">{m.name}</span>
+                {m.applied ? (
+                  <span className="ml-auto bg-[#DDEFE3] text-[#2F7D4F] rounded-full px-3 py-0.5 text-[12px] font-semibold">
+                    Applied{m.appliedAt ? ` · ${new Date(m.appliedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+                  </span>
+                ) : (
+                  <span className="ml-auto bg-[#F8EAC8] text-[#9A6A12] rounded-full px-3 py-0.5 text-[12px] font-semibold">
+                    Pending
+                  </span>
+                )}
+              </div>
             ))}
-          </div>
-          <div className="flex gap-2.5 flex-wrap text-[13px]">
-            {Object.entries(status.firestore ?? {}).map(([k, v]) => (
-              <span key={k} className="bg-cream rounded-full px-3.5 py-1.5 font-medium">
-                Firestore {k}: <strong>{v === -1 ? "has data" : "empty"}</strong>
-              </span>
-            ))}
-            <span className="bg-cream rounded-full px-3.5 py-1.5 font-medium">
-              Settings: <strong>{status.settingsExists ? "has data" : "empty"}</strong>
-            </span>
+            {(status.migrations ?? []).length === 0 && (
+              <p className="text-muted text-[14px]">No migration files found.</p>
+            )}
           </div>
           <div>
-            <button className={btnAdminPrimary} onClick={migrate} disabled={working}>
-              {working ? "Migrating…" : "Migrate local data to Firestore"}
+            <button className={btnAdminPrimary} onClick={migrate} disabled={working || pending.length === 0}>
+              {working ? "Applying…" : pending.length === 0 ? "All migrations applied" : `Run ${pending.length} pending migration${pending.length === 1 ? "" : "s"}`}
             </button>
           </div>
-          {result?.ok && result.migrated && (
+          {result?.ok && (
             <div className="bg-[#DDEFE3] text-[#2F7D4F] rounded-[14px] px-5 py-4 text-[14px] font-medium">
-              Migrated: {Object.entries(result.migrated).map(([k, v]) => `${k} (${v})`).join(", ")}. The site now reads from Firestore.
+              {result.applied && result.applied.length > 0
+                ? <>Applied: {result.applied.join(", ")}. </>
+                : <>Nothing new to apply. </>}
+              {result.skipped && result.skipped.length > 0 && <>Skipped (already applied): {result.skipped.join(", ")}.</>}
             </div>
           )}
           {result && !result.ok && (
