@@ -9,6 +9,7 @@ import { IconPlus, IconSearch, IconTrash, IconX } from "@/components/Icons";
 import { useToast } from "@/components/toast";
 import type { Color, Product } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
+import { ColorSwatch } from "./_swatch";
 import {
   Card,
   EmptyState,
@@ -24,28 +25,6 @@ import {
   RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
-
-export function ColorSwatch({ color, size = 40 }: { color: Pick<Color, "hex" | "imageUrl" | "name">; size?: number }) {
-  const style = { width: size, height: size } as const;
-  if (color.imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={color.imageUrl}
-        alt={color.name}
-        style={style}
-        className="rounded-full object-cover border border-line flex-none"
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      style={{ ...style, background: color.hex || "#DDD3C4" }}
-      className="rounded-full border border-line flex-none"
-    />
-  );
-}
 
 type FormState = { id?: string; name: string; hex: string; imageUrl: string };
 
