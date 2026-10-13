@@ -58,7 +58,7 @@ export default async function HomePage() {
       <JsonLd data={itemListJsonLd(bestsellers, "Bestselling sofas at Sofora", "/")} />
 
       {/* ── Hero: full device height on md and up, natural responsive flow below md ── */}
-      <section className="mx-auto px-6 pt-14 pb-20 md:py-10 flex flex-wrap gap-12 items-center md:min-h-screen md:min-h-[100dvh]">
+      <section className="mx-auto px-6 pb-20  flex flex-wrap gap-12 items-center md:min-h-screen md:min-h-[100dvh]">
         <div className="flex-1 basis-[400px] flex flex-col gap-7">
           <span className="self-start inline-flex items-center gap-2 bg-mint text-forest rounded-full px-3.5 py-1.5 text-sm font-medium">
             <IconCash size={16} /> Cash on delivery across the UK
