@@ -41,8 +41,17 @@ export function mysqlPool(): mysql.Pool | null {
     pool = mysql.createPool({
       ...parseDatabaseUrl(url),
       waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
+      // Shared-hosting connection budget: the MySQL user is capped at 75
+      // simultaneous connections TOTAL across the production server, build
+      // workers, dev machines and phpMyAdmin. Keep every pool small so that
+      // frequent deploys can never exhaust it:
+      //   prod (5) + one build (3 workers x 5) + dev (5) + phpMyAdmin << 75.
+      connectionLimit: 5,
+      queueLimit: 50,
+      // Release idle connections quickly and keep at most 2 warm per pool,
+      // so an idle process barely registers on the connection count.
+      idleTimeout: 15000,
+      maxIdle: 2,
       // Keep dates as strings (the app uses ISO-8601 strings everywhere).
       dateStrings: true,
       // Reconnect-friendly defaults for shared hosting.

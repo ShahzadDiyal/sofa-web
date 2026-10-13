@@ -193,13 +193,25 @@ export async function getLocalStore(): Promise<LocalStore> {
    and order lookups always see fresh data. Note: the cache is per server
    instance, so cross-instance staleness is bounded by these TTLs. */
 const READ_CACHE_TTL_MS = 600_000; // 10 minutes
+const READ_FAIL_TTL_MS = 30_000; // 30 seconds — recover quickly after a DB blip
+const MYSQL_TIMEOUT_MS = 8000; // never let a page hang on a stuck query
 const ORDER_CACHE_TTL_MS = 60_000; // 1 minute
-const readCache = new Map<string, { at: number; value: unknown }>();
+const readCache = new Map<string, { at: number; ttl: number; value: unknown }>();
+
+/** Reject if the promise doesn't settle within ms (bounds stuck queries). */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
+}
 
 /**
  * Resilient read pipeline:
  *  1. short-lived cache
- *  2. MySQL (when DATABASE_URL is set)
+ *  2. MySQL (when DATABASE_URL is set) — bounded by MYSQL_TIMEOUT_MS so a
+ *     saturated database degrades to fallback data instead of hanging pages
  *  3. local seeded store (never throws)
  * MySQL errors are logged, never thrown to pages.
  */
@@ -210,22 +222,27 @@ async function resilientRead<T>(
   ttlMs: number = READ_CACHE_TTL_MS
 ): Promise<T> {
   const hit = readCache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return structuredClone(hit.value) as T;
+  if (hit && Date.now() - hit.at < hit.ttl) return structuredClone(hit.value) as T;
   const pool = mysqlPool();
   if (pool) {
     try {
-      const value = await fromMysql();
-      readCache.set(key, { at: Date.now(), value });
+      const value = await withTimeout(fromMysql(), MYSQL_TIMEOUT_MS);
+      readCache.set(key, { at: Date.now(), ttl: ttlMs, value });
       return structuredClone(value) as T;
     } catch (err) {
       console.warn(
-        `[db] MySQL read "${key}" failed; serving local data.`,
+        `[db] MySQL read "${key}" failed or timed out; serving local data.`,
         (err as Error)?.message ?? err
       );
+      // Cache the fallback only briefly: the next read retries the database
+      // soon (quick recovery) without hammering a struggling server.
+      const value = await fromLocal();
+      readCache.set(key, { at: Date.now(), ttl: READ_FAIL_TTL_MS, value });
+      return structuredClone(value) as T;
     }
   }
   const value = await fromLocal();
-  readCache.set(key, { at: Date.now(), value });
+  readCache.set(key, { at: Date.now(), ttl: ttlMs, value });
   return structuredClone(value) as T;
 }
 
