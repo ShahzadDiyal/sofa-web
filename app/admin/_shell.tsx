@@ -53,7 +53,17 @@ type NavEntry = NavLeaf | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "items" in e;
 
 const NAV: NavEntry[] = [
-  { href: "/uk/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
+  {
+    label: "Dashboard",
+    Icon: IconDashboard,
+    items: [
+      { href: "/uk/admin", label: "Overview", Icon: IconDashboard, exact: true },
+      { href: "/uk/admin/customers", label: "Customers", Icon: IconPhone },
+      { href: "/uk/admin/users", label: "Users", Icon: IconShield },
+      { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
+      { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
+    ],
+  },
   {
     label: "Products",
     Icon: IconSofa,
@@ -69,17 +79,13 @@ const NAV: NavEntry[] = [
     label: "Content",
     Icon: IconArticle,
     items: [
-      { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
-      { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
       { href: "/uk/admin/coupons", label: "Coupons", Icon: IconTicket },
       { href: "/uk/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
       { href: "/uk/admin/posts", label: "Blog", Icon: IconArticle },
-      { href: "/uk/admin/customers", label: "Customers", Icon: IconPhone },
-      { href: "/uk/admin/users", label: "Users", Icon: IconShield },
       { href: "/uk/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
-      { href: "/uk/admin/settings", label: "Settings", Icon: IconSettings },
     ],
   },
+  { href: "/uk/admin/settings", label: "Settings", Icon: IconSettings },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
