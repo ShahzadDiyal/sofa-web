@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Color, Faq, Product, SiteSettings } from "@/lib/types";
-import { gbp, apiUrl } from "@/lib/seo";
+import { gbp } from "@/lib/seo";
 import { useStore } from "@/lib/store";
 import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -48,23 +48,21 @@ export default function ProductClient({
   related,
   settings,
   reviewStats,
+  colors,
 }: {
   product: Product;
   related: Product[];
   faqs: Faq[];
   settings: SiteSettings;
   reviewStats: { count: number; avg: number };
+  colors: Color[];
 }) {
   const router = useRouter();
   const { addToBasket } = useStore();
   const toast = useToast();
-  const [libColors, setLibColors] = useState<Color[]>([]);
-  useEffect(() => {
-    fetch(apiUrl("/api/colors"))
-      .then((r) => r.json())
-      .then((d) => setLibColors(d.colors ?? []))
-      .catch(() => {});
-  }, []);
+  /* Managed colour library arrives as a server prop (SSR) — this component
+     never fetches content data itself. */
+  const libColors = colors;
   /* Real colourways, enriched with the managed colour library (hex + swatch). */
   const colorways: Colorway[] = useMemo(() => {
     const libByName = new Map(libColors.map((c) => [c.name, c]));

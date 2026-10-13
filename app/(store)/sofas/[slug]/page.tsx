@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductReviewStats, getSettings, listCategories, listFaqs, listProducts } from "@/lib/db";
+import { getProductReviewStats, getSettings, listCategories, listColors, listFaqs, listProducts } from "@/lib/db";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
 import { Breadcrumbs, JsonLd } from "@/components/storefront";
 import ProductClient from "./ProductClient";
@@ -58,11 +58,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [products, categories, faqs, settings] = await Promise.all([
+  const [products, categories, faqs, settings, colors] = await Promise.all([
     listProducts(),
     listCategories(),
     listFaqs(),
     getSettings(),
+    listColors(),
   ]);
   const product = products.find((p) => p.slug === slug);
   if (!product) notFound();
@@ -90,14 +91,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <div className="mx-auto px-6 pt-7">
         <Breadcrumbs
           trail={[
-            { name: "Home", href: "/" },
-            { name: category?.name ?? "All sofas", href: "/sofas" },
+            { name: "Home", href: "/uk/" },
+            { name: category?.name ?? "All sofas", href: "/uk/sofas" },
             { name: product.name },
           ]}
         />
       </div>
 
-      <ProductClient product={product} related={related} faqs={faqs} settings={settings} reviewStats={stats} />
+      <ProductClient product={product} related={related} faqs={faqs} settings={settings} reviewStats={stats} colors={colors} />
     </>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { apiUrl } from "@/lib/seo";
 import type { Category, FooterLink, FooterMenu, Product } from "@/lib/types";
 import {
   IconBasket,
@@ -17,34 +16,16 @@ import {
 import SofaIllustration from "./SofaIllustration";
 import Logo from "./Logo";
 
-const SALE_LINK = { label: "Sale", href: "/sofas?sale=1" };
+const SALE_LINK = { label: "Sale", href: "/uk/sofas?sale=1" };
 
 /* Menu groups are built from the `menu` field on categories (editable in
    Admin → Categories). Nothing is hardcoded: rename a group or move a
    category there and the navbar follows. */
 
-function useMenuData() {
-  const [categories, setCategories] = useState<Category[] | null>(null);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [products, setProducts] = useState<Product[] | null>(null);
-  useEffect(() => {
-    fetch(apiUrl("/api/categories"))
-      .then((r) => r.json())
-      .then((d) => setCategories(d.categories ?? []))
-      .catch(() => setCategories([]));
-    fetch(apiUrl("/api/products"))
-      .then((r) => r.json())
-      .then((d) => {
-        const list = d.products ?? [];
-        const m: Record<string, number> = {};
-        for (const p of list) m[p.category] = (m[p.category] ?? 0) + 1;
-        setCounts(m);
-        setProducts(list);
-      })
-      .catch(() => {});
-  }, []);
-  return { categories, counts, products };
-}
+/* SSR/CSR standard: Header is a client component ONLY for interactivity
+   (hover menus, drawer, search). All content data (categories, products)
+   arrives as props from the server layout — it never fetches content
+   itself, so nav/mega-menu links are present in the page source. */
 
 /* Compact product tile for the mega-menu "Most popular" panel — shows the
    product's real photo when it has one, falling back to the illustration. */
@@ -83,19 +64,6 @@ function ProductTile({ product }: { product: Product }) {
   );
 }
 
-function ShimmerTiles() {
-  return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-5" aria-hidden>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-2">
-          <div className="rounded-[18px] aspect-[4/3] skeleton" />
-          <div className="h-4 w-3/4 rounded-full skeleton" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function AnnouncementBar({ messages }: { messages: string[] }) {
   return (
     <div className="bg-forest text-cream text-sm">
@@ -108,14 +76,26 @@ export function AnnouncementBar({ messages }: { messages: string[] }) {
   );
 }
 
-export function Header({ logoUrl }: { logoUrl?: string }) {
+export function Header({
+  logoUrl,
+  categories,
+  products,
+}: {
+  logoUrl?: string;
+  categories: Category[];
+  products: Product[];
+}) {
   const { basketCount, wishlist } = useStore();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const { categories, counts, products } = useMenuData();
+  const counts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of products) m[p.category] = (m[p.category] ?? 0) + 1;
+    return m;
+  }, [products]);
   const closeTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -148,7 +128,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
   /* Navbar menu groups, derived live from the database. */
   const menuGroups = (() => {
     const map = new Map<string, Category[]>();
-    for (const c of categories ?? []) {
+    for (const c of categories) {
       if (!c.menu?.trim()) continue;
       const label = c.menu.trim();
       if (!map.has(label)) map.set(label, []);
@@ -269,15 +249,8 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
             <div className="mx-auto px-6 lg:px-10 py-8 lg:py-10 max-w-[1440px] grid gap-10 lg:grid-cols-[minmax(360px,470px)_1fr]">
               <div>
                 <p className="label-caps mb-4">Shop by category</p>
-                {categories === null ? (
-                  <div className="grid grid-cols-2 gap-2.5" aria-hidden>
-                    {[0, 1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="h-[60px] rounded-[14px] skeleton" />
-                    ))}
-                  </div>
-                ) : (
-                  <ul className="grid sm:grid-cols-2 gap-x-3">
-                    {openCats.map((c) => (
+                <ul className="grid sm:grid-cols-2 gap-x-3">
+                  {openCats.map((c) => (
                       <li key={c.slug}>
                         <Link
                           href={`/uk/sofas?category=${c.slug}`}
@@ -301,7 +274,6 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                       </li>
                     ))}
                   </ul>
-                )}
                 <Link
                   href="/uk/sofas"
                   className="inline-flex items-center gap-2 mt-5 text-[14px] font-semibold text-forest underline underline-offset-4 hover:opacity-70"
@@ -320,9 +292,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                     Shop bestsellers
                   </Link>
                 </div>
-                {products === null ? (
-                  <ShimmerTiles />
-                ) : (
+                {openPopular.length > 0 && (
                   <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
                     {openPopular.map((p) => (
                       <ProductTile key={p.slug} product={p} />
@@ -392,14 +362,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                   </button>
                   {isExpanded && (
                     <div className="pb-3 flex flex-col gap-1">
-                      {categories === null ? (
-                        <div className="flex flex-col gap-2.5 py-1" aria-hidden>
-                          {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="h-5 w-3/4 rounded-full skeleton" />
-                          ))}
-                        </div>
-                      ) : (
-                        cats.map((c) => (
+                      {cats.map((c) => (
                           <Link
                             key={c.slug}
                             href={`/uk/sofas?category=${c.slug}`}
@@ -430,8 +393,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                               {counts[c.slug] ?? 0}
                             </span>
                           </Link>
-                        ))
-                      )}
+                        ))}
                     </div>
                   )}
                 </div>

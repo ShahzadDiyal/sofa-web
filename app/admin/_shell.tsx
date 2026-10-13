@@ -29,20 +29,20 @@ import AdminSearch from "./_search";
 import type { ContactQuery, Order } from "@/lib/types";
 
 const NAV = [
-  { href: "/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
-  { href: "/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
-  { href: "/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
-  { href: "/admin/products", label: "Sofas", Icon: IconSofa },
-  { href: "/admin/categories", label: "Categories", Icon: IconTag },
-  { href: "/admin/colors", label: "Colours", Icon: IconPalette },
-  { href: "/admin/product-reviews", label: "Reviews", Icon: IconHeart },
-  { href: "/admin/coupons", label: "Coupons", Icon: IconTicket },
-  { href: "/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
-  { href: "/admin/posts", label: "Blog", Icon: IconArticle },
-  { href: "/admin/customers", label: "Customers", Icon: IconPhone },
-  { href: "/admin/users", label: "Users", Icon: IconShield },
-  { href: "/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
-  { href: "/admin/settings", label: "Settings", Icon: IconSettings },
+  { href: "/uk/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
+  { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
+  { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
+  { href: "/uk/admin/products", label: "Sofas", Icon: IconSofa },
+  { href: "/uk/admin/categories", label: "Categories", Icon: IconTag },
+  { href: "/uk/admin/colors", label: "Colours", Icon: IconPalette },
+  { href: "/uk/admin/product-reviews", label: "Reviews", Icon: IconHeart },
+  { href: "/uk/admin/coupons", label: "Coupons", Icon: IconTicket },
+  { href: "/uk/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
+  { href: "/uk/admin/posts", label: "Blog", Icon: IconArticle },
+  { href: "/uk/admin/customers", label: "Customers", Icon: IconPhone },
+  { href: "/uk/admin/users", label: "Users", Icon: IconShield },
+  { href: "/uk/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
+  { href: "/uk/admin/settings", label: "Settings", Icon: IconSettings },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {

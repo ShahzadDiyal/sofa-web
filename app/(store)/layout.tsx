@@ -41,7 +41,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         </>
       )}
       <AnnouncementBar messages={settings.announcementBar} />
-      <Header logoUrl={settings.logoUrl} />
+      <Header logoUrl={settings.logoUrl} categories={categories} products={products} />
       <main>{children}</main>
       <Footer settings={settings} shopLinks={shopLinks} />
     </>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Category, Color, Product } from "@/lib/types";
-import { gbp, apiUrl } from "@/lib/seo";
+import { gbp } from "@/lib/seo";
 import { Breadcrumbs, JsonLd, ProductCard } from "@/components/storefront";
 import { itemListJsonLd } from "@/lib/seo";
 import { IconCash, IconShield, IconTruck } from "@/components/Icons";
@@ -107,9 +107,11 @@ function Check({ on, label, onToggle }: { on: boolean; label: string; onToggle: 
 export default function CollectionClient({
   products,
   categories,
+  colors,
 }: {
   products: Product[];
   categories: Category[];
+  colors: Color[];
 }) {
   const params = useSearchParams();
   const initialCat = params.get("category") ?? "";
@@ -128,20 +130,11 @@ export default function CollectionClient({
   const [sort, setSort] = useState<Sort>("best");
   const [page, setPage] = useState(1);
   const gridTopRef = useRef<HTMLDivElement>(null);
-  /* Colour filter swatches come from the managed library (Admin → Colours). */
-  const [libColors, setLibColors] = useState<Color[] | null>(null);
-  useEffect(() => {
-    fetch(apiUrl("/api/colors"))
-      .then((r) => r.json())
-      .then((d) => setLibColors(d.colors ?? []))
-      .catch(() => setLibColors([]));
-  }, []);
+  /* Colour filter swatches come from the managed library (Admin → Colours),
+     passed as a server prop so the filters render in the page source. */
+  const libColors: Color[] | null = colors;
   const filterColours: { name: string; hex?: string; imageUrl?: string }[] =
-    libColors === null
-      ? FALLBACK_COLOURS
-      : libColors.length
-        ? libColors
-        : FALLBACK_COLOURS;
+    libColors.length ? libColors : FALLBACK_COLOURS;
 
   const toggle = <T,>(arr: T[], v: T, set: (x: T[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -210,7 +203,7 @@ export default function CollectionClient({
 
       <div className="mx-auto px-6 pt-8 pb-5">
         <Breadcrumbs
-          trail={[{ name: "Home", href: "/" }, { name: activeCat ? activeCat.name : "All sofas" }]}
+          trail={[{ name: "Home", href: "/uk/" }, { name: activeCat ? activeCat.name : "All sofas" }]}
         />
         <div className="flex flex-wrap justify-between items-end gap-6 mt-5">
           <div className="flex flex-col gap-3">
