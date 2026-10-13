@@ -199,25 +199,57 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [newQueryCount, setNewQueryCount] = useState(0);
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [authFailed, setAuthFailed] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
 
   // Auth gate for the admin UI: the real security boundary is the API
   // (every admin route calls requireAdmin()), this keeps signed-out
   // visitors from seeing empty admin screens.
+  //
+  // Resilience matters here: on a slow or flaky host the session check can
+  // fail transiently (500/502/504, dropped connection) even with a valid
+  // session. Only an explicit 401 means "signed out" and redirects to the
+  // login page. Anything else is retried a few times; if the server stays
+  // unreachable we show a retry screen instead of bouncing a signed-in
+  // admin into a login loop.
   useEffect(() => {
     if (isLoginPage) return;
-    fetch(apiUrl("/api/admin/session"))
-      .then((r) => {
-        if (!r.ok) throw new Error("signed out");
-        return r.json();
-      })
-      .then((d) => {
+    let cancelled = false;
+    const check = async (attempt: number): Promise<void> => {
+      try {
+        const r = await fetch(apiUrl("/api/admin/session"), { cache: "no-store" });
+        if (r.status === 401) {
+          window.location.replace("/uk/admin/login");
+          return;
+        }
+        if (!r.ok) throw new Error(`session check failed (${r.status})`);
+        const d = await r.json();
+        if (cancelled) return;
         setAdminEmail(d.email ?? null);
         setAuthChecked(true);
-      })
-      .catch(() => window.location.replace("/uk/admin/login"));
+      } catch {
+        if (cancelled) return;
+        if (attempt < 3) {
+          await new Promise((res) => setTimeout(res, 1200 * attempt));
+          return check(attempt + 1);
+        }
+        setAuthFailed(true);
+        setAuthChecked(true);
+      }
+    };
+    void check(1);
+    return () => {
+      cancelled = true;
+    };
   }, [isLoginPage]);
+
+  const retryAuth = () => {
+    setAuthFailed(false);
+    setAuthChecked(false);
+    // Re-run the gate by navigating to the same page fresh.
+    window.location.reload();
+  };
 
   /* Sidebar badges count only unread items (new orders, new queries).
      Refetched on navigation AND whenever a page reports that something was
@@ -249,6 +281,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // Login page renders without the admin chrome.
   if (isLoginPage) return <>{children}</>;
+
+  // The server stayed unreachable after retries: show a retry screen
+  // instead of bouncing a signed-in admin into a login loop.
+  if (authFailed) {
+    return (
+      <div className="min-h-screen bg-cream grid place-items-center px-4">
+        <div className="w-full max-w-[420px] rounded-[16px] bg-white border border-line p-8 text-center shadow-sm">
+          <h1 className="text-[20px] font-semibold text-ink">Couldn&apos;t reach the server</h1>
+          <p className="text-[14px] text-muted mt-2">
+            The admin session check failed several times. Your sign-in is still valid — this is
+            usually a temporary connection problem.
+          </p>
+          <button
+            type="button"
+            onClick={retryAuth}
+            className="mt-6 rounded-[12px] bg-forest text-cream font-semibold px-6 py-3 text-[15px] hover:bg-forest-deep transition"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Shimmer while the session check runs (no content flash for signed-out visitors).
   if (!authChecked) {

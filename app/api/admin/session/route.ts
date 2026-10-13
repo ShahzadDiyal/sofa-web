@@ -15,6 +15,8 @@ import { logAudit } from "@/lib/db";
 // 10 years — the admin session effectively never expires.
 const SESSION_MAX_AGE_S = 10 * 365 * 24 * 60 * 60;
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   const { email, password } = await req.json().catch(() => ({}));
   if (!email || typeof email !== "string" || !password || typeof password !== "string") {
@@ -53,8 +55,12 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const email = await getAdminEmail();
-  if (!email) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  return NextResponse.json({ ok: true, email });
+  const res = email
+    ? NextResponse.json({ ok: true, email })
+    : NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  // Never let a proxy or CDN serve a stale signed-out answer to a signed-in admin.
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  return res;
 }
 
 export async function DELETE(req: Request) {
