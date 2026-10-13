@@ -1,9 +1,18 @@
 /* Seed content transcribed from the design mockup.
    Everything here is editable from the admin panel once wired. */
 
-import type { Category, Color, Faq, Post, Product, Review, SiteSettings } from "./types";
+import type { Category, Color, Fabric, Faq, Post, Product, Review, SiteSettings } from "./types";
 
 const now = "2026-10-09T10:00:00.000Z";
+
+/* Managed fabric library seeds — the original hardcoded fabric list,
+   now editable from Admin → Fabrics. */
+export const seedFabrics: Fabric[] = [
+  { id: "fabric-easy-clean-weave", name: "Easy-clean weave", createdAt: now, updatedAt: now },
+  { id: "fabric-velvet", name: "Velvet", createdAt: now, updatedAt: now },
+  { id: "fabric-jumbo-cord", name: "Jumbo cord", createdAt: now, updatedAt: now },
+  { id: "fabric-boucle", name: "Bouclé", createdAt: now, updatedAt: now },
+];
 
 /* Managed colour library seeds — mirrors the original storefront palette. */
 export const seedColors: Color[] = [

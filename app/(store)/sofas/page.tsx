@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { listCategories, listColors, listProducts } from "@/lib/db";
+import { listCategories, listColors, listFabrics, listProducts } from "@/lib/db";
 import { absoluteUrl } from "@/lib/seo";
 import CollectionClient from "./CollectionClient";
 
@@ -60,7 +60,7 @@ export async function generateMetadata({
 }
 
 export default async function CollectionPage() {
-  const [products, categories, colors] = await Promise.all([listProducts(), listCategories(), listColors()]);
+  const [products, categories, colors, fabricLib] = await Promise.all([listProducts(), listCategories(), listColors(), listFabrics()]);
   return (
     <Suspense
       fallback={
@@ -75,7 +75,7 @@ export default async function CollectionPage() {
         </div>
       }
     >
-      <CollectionClient products={products} categories={categories} colors={colors} />
+      <CollectionClient products={products} categories={categories} colors={colors} fabricLib={fabricLib} />
     </Suspense>
   );
 }

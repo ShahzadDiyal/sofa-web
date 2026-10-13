@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { IconPlus, IconTrash } from "@/components/Icons";
 import { useToast } from "@/components/toast";
 import SofaIllustration from "@/components/SofaIllustration";
-import type { Category, Color, Product, SofaType } from "@/lib/types";
+import type { Category, Color, Fabric, Product, SofaType } from "@/lib/types";
 import ImageUploadField from "../_image-upload";
 import {
   Card,
@@ -33,7 +33,9 @@ const TYPE_OPTIONS: { label: string; value: SofaType }[] = [
   { label: "Sofa bed", value: "sofa-bed" },
 ];
 
-const FABRIC_TYPES = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
+/* Fallback when the managed fabric library is empty — the original hardcoded list.
+   Once fabrics exist in Admin → Fabrics, those are used instead. */
+const LEGACY_FABRIC_TYPES = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
 
 interface ColourRow {
   hex: string;
@@ -188,7 +190,8 @@ export default function SofaForm({ product }: { product?: Product }) {
   const [description, setDescription] = useState(product?.description ?? "");
   const [type, setType] = useState<SofaType>(product?.type ?? "three");
   const [sku, setSku] = useState(product?.sku ?? "");
-  const [fabricType, setFabricType] = useState(product?.fabricType ?? FABRIC_TYPES[0]);
+  const [fabricType, setFabricType] = useState(product?.fabricType ?? LEGACY_FABRIC_TYPES[0]);
+  const [fabricLib, setFabricLib] = useState<Fabric[]>([]);
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [category, setCategory] = useState(product?.category ?? "3-seater-sofas");
   const [colorLib, setColorLib] = useState<Color[]>([]);
@@ -227,7 +230,19 @@ export default function SofaForm({ product }: { product?: Product }) {
     api<{ colors: Color[] }>("/api/colors")
       .then(({ colors }) => setColorLib(colors))
       .catch(() => {});
+    api<{ fabrics: Fabric[] }>("/api/fabrics")
+      .then(({ fabrics }) => setFabricLib(fabrics))
+      .catch(() => {});
   }, [product]);
+
+  /* Fabric options come from the managed library (Admin → Fabrics). The legacy
+     list is only a fallback while the library is empty, and the product's own
+     fabric is always kept so existing sofas never lose their value. */
+  const fabricOptions = useMemo(() => {
+    const names = fabricLib.length > 0 ? fabricLib.map((f) => f.name) : LEGACY_FABRIC_TYPES;
+    if (fabricType && !names.includes(fabricType)) return [fabricType, ...names];
+    return names;
+  }, [fabricLib, fabricType]);
 
   const setColour = (i: number, patch: Partial<ColourRow>) =>
     setColours((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -404,7 +419,7 @@ export default function SofaForm({ product }: { product?: Product }) {
               <div>
                 <label className={labelClass} htmlFor="f-fabric">Fabric type</label>
                 <select id="f-fabric" className={fieldClass} value={fabricType} onChange={(e) => setFabricType(e.target.value)}>
-                  {FABRIC_TYPES.map((f) => (
+                  {fabricOptions.map((f) => (
                     <option key={f}>{f}</option>
                   ))}
                 </select>

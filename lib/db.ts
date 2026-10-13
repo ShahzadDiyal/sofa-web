@@ -13,6 +13,7 @@ import type { Pool } from "mysql2/promise";
 import {
   seedCategories,
   seedColors,
+  seedFabrics,
   seedFaqs,
   seedPosts,
   seedProducts,
@@ -24,6 +25,7 @@ import type {
   Color,
   ContactQuery,
   Coupon,
+  Fabric,
   Faq,
   FlashSale,
   Order,
@@ -41,6 +43,7 @@ interface LocalStore {
   products: Product[];
   categories: Category[];
   colors: Color[];
+  fabrics: Fabric[];
   queries: ContactQuery[];
   coupons: Coupon[];
   flashSales: FlashSale[];
@@ -88,6 +91,7 @@ function freshLocal(): LocalStore {
     products: structuredClone(seedProducts),
     categories: structuredClone(seedCategories),
     colors: structuredClone(seedColors),
+    fabrics: structuredClone(seedFabrics),
     queries: [],
     coupons: [],
     flashSales: [],
@@ -118,6 +122,7 @@ async function readLocalFile(): Promise<LocalStore> {
       "products",
       "categories",
       "colors",
+      "fabrics",
       "queries",
       "coupons",
       "flashSales",
@@ -347,6 +352,15 @@ function rowToColor(r: Record<string, unknown>): Color {
     name: String(r.name ?? ""),
     hex: (r.hex as string) ?? undefined,
     imageUrl: (r.imageUrl as string) ?? undefined,
+    createdAt: (r.createdAt as string) ?? "",
+    updatedAt: (r.updatedAt as string) ?? "",
+  };
+}
+
+function rowToFabric(r: Record<string, unknown>): Fabric {
+  return {
+    id: String(r.id),
+    name: String(r.name ?? ""),
     createdAt: (r.createdAt as string) ?? "",
     updatedAt: (r.updatedAt as string) ?? "",
   };
@@ -1087,6 +1101,103 @@ export async function deleteColor(id: string): Promise<void> {
     }
     await mutateLocal((s) => {
       s.colors = s.colors.filter((c) => c.id !== id);
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+/* ---------- content: managed fabric library ---------- */
+
+export async function listFabrics(): Promise<Fabric[]> {
+  return resilientRead(
+    "fabrics:all",
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT * FROM fabrics ORDER BY name ASC");
+      return (rows as Record<string, unknown>[]).map(rowToFabric);
+    },
+    async () => {
+      const s = await loadLocal();
+      return [...s.fabrics].sort((a, b) => a.name.localeCompare(b.name));
+    }
+  );
+}
+
+type FabricInput = { id?: string } & Partial<Omit<Fabric, "id">>;
+
+export async function saveFabric(input: FabricInput): Promise<Fabric> {
+  try {
+    const nowIso = new Date().toISOString();
+    const pool = mysqlPool();
+    if (pool) {
+      if (input.id) {
+        const [rows] = await pool.query("SELECT * FROM fabrics WHERE id = ? LIMIT 1", [input.id]);
+        const list = rows as Record<string, unknown>[];
+        const existing = list.length ? rowToFabric(list[0]) : undefined;
+        const name =
+          input.name !== undefined ? input.name.trim() || existing?.name || "Unnamed" : existing?.name || "Unnamed";
+        await upsertRow("fabrics", {
+          id: input.id,
+          name,
+          createdAt: existing?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        });
+        return {
+          id: input.id,
+          name,
+          createdAt: existing?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        };
+      }
+      const fabric: Fabric = {
+        id: `fabric-${Date.now()}`,
+        name: (input.name ?? "").trim() || "Unnamed",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      await upsertRow("fabrics", {
+        id: fabric.id,
+        name: fabric.name,
+        createdAt: fabric.createdAt,
+        updatedAt: fabric.updatedAt,
+      });
+      return fabric;
+    }
+    return mutateLocal((s) => {
+      if (input.id) {
+        const i = s.fabrics.findIndex((f) => f.id === input.id);
+        if (i >= 0) {
+          const cur = { ...s.fabrics[i] };
+          if (input.name !== undefined) cur.name = input.name.trim() || cur.name;
+          cur.updatedAt = nowIso;
+          s.fabrics[i] = cur;
+          return cur;
+        }
+      }
+      const fabric: Fabric = {
+        id: `fabric-${Date.now()}`,
+        name: (input.name ?? "").trim() || "Unnamed",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      s.fabrics.push(fabric);
+      return fabric;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export async function deleteFabric(id: string): Promise<void> {
+  try {
+    const pool = mysqlPool();
+    if (pool) {
+      await deleteRow("fabrics", "id", id);
+      return;
+    }
+    await mutateLocal((s) => {
+      s.fabrics = s.fabrics.filter((f) => f.id !== id);
     });
   } finally {
     invalidateReadCache();

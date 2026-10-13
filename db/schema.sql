@@ -64,6 +64,14 @@ CREATE TABLE IF NOT EXISTS colors (
   INDEX idx_colors_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS fabrics (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  createdAt VARCHAR(32) NULL,
+  updatedAt VARCHAR(32) NULL,
+  INDEX idx_fabrics_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS product_reviews (
   id VARCHAR(80) PRIMARY KEY,
   productId VARCHAR(64) NOT NULL,

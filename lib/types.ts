@@ -21,7 +21,7 @@ export interface Product {
   colorImages?: Record<string, string>; // per-colourway photos, keyed by colour name
   sku?: string;
   seats?: number; // 1, 2, 3, 4 (4 = 4+ seater)
-  fabricType?: string; // "Easy-clean weave" | "Velvet" | "Jumbo cord" | "Bouclé"
+  fabricType?: string; // references a Fabric name from the managed library (Admin → Fabrics)
   colourName?: string; // "Oat" | "Sage" | "Charcoal" | "Terracotta" | "Navy" | "Mink" | "Blush" | "Mustard"
   features?: string[]; // e.g. ["Sofa bed", "Reclining", "Storage"]
   rating?: number;
@@ -52,6 +52,14 @@ export interface Color {
   name: string;
   hex?: string; // e.g. "#D8CBB4"
   imageUrl?: string; // optional swatch photo (device upload → Cloudinary)
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* Managed fabric library (Admin → Fabrics). Products reference fabrics by name. */
+export interface Fabric {
+  id: string;
+  name: string;
   createdAt: string;
   updatedAt: string;
 }

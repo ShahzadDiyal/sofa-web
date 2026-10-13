@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { Category, Color, Product } from "@/lib/types";
+import type { Category, Color, Fabric, Product } from "@/lib/types";
 import { gbp } from "@/lib/seo";
 import { Breadcrumbs, JsonLd, ProductCard } from "@/components/storefront";
 import { itemListJsonLd } from "@/lib/seo";
 import { IconCash, IconShield, IconTruck } from "@/components/Icons";
 
 const SEATS = [1, 2, 3, 4];
-const FABRICS = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
+
+/* Fallback fabric list while the managed library is empty. */
+const LEGACY_FABRICS = ["Easy-clean weave", "Velvet", "Jumbo cord", "Bouclé"];
 const FEATURES = ["Sofa bed", "Reclining", "Storage"];
 const PAGE_SIZE = 24;
 /* Fallback palette if the managed colour library can't be reached. */
@@ -108,10 +110,12 @@ export default function CollectionClient({
   products,
   categories,
   colors,
+  fabricLib,
 }: {
   products: Product[];
   categories: Category[];
   colors: Color[];
+  fabricLib: Fabric[];
 }) {
   const params = useSearchParams();
   const initialCat = params.get("category") ?? "";
@@ -133,6 +137,7 @@ export default function CollectionClient({
   /* Colour filter swatches come from the managed library (Admin → Colours),
      passed as a server prop so the filters render in the page source. */
   const libColors: Color[] | null = colors;
+  const fabricOptions = fabricLib.length > 0 ? fabricLib.map((f) => f.name) : LEGACY_FABRICS;
   const filterColours: { name: string; hex?: string; imageUrl?: string }[] =
     libColors.length ? libColors : FALLBACK_COLOURS;
 
@@ -301,7 +306,7 @@ export default function CollectionClient({
           <div className="border-t border-line py-4">
             <span className="label-caps">Fabric</span>
             <div className="mt-1">
-              {FABRICS.map((f) => (
+              {fabricOptions.map((f) => (
                 <Check key={f} label={f} on={fabrics.includes(f)} onToggle={() => toggle(fabrics, f, setFabrics)} />
               ))}
             </div>
