@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [`${BASE_PATH}/admin`, "/api/", `${BASE_PATH}/api/`, `${BASE_PATH}/order-confirmed`],
       },
     ],
-    sitemap: `${base}${BASE_PATH}/sitemap.xml`,
+    // Crawler files live at the domain root; /uk/sitemap.xml redirects here.
+    sitemap: `${base}/sitemap.xml`,
   };
 }

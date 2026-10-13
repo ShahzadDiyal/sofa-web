@@ -19,6 +19,15 @@ export function middleware(req: NextRequest) {
   // Domain root -> /uk (permanent).
   if (rawPath === "/") return NextResponse.redirect(new URL("/uk", req.url), 308);
 
+  // Dotted files (sitemap.xml, robots.txt, llms.txt, icons…) live at the
+  // domain root by convention. A /uk/-prefixed request for one permanently
+  // redirects to the root file so it never 404s.
+  if (rawPath.startsWith("/uk/") && rawPath.slice(4).includes(".")) {
+    const url = req.nextUrl.clone();
+    url.pathname = rawPath.slice(3);
+    return NextResponse.redirect(url, 308);
+  }
+
   // /uk/* -> serve the real /* route internally (URL keeps /uk).
   if (rawPath === "/uk" || rawPath.startsWith("/uk/")) {
     const url = req.nextUrl.clone();
@@ -31,5 +40,9 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
+  // The first pattern skips the API, _next assets and dotted files (static
+  // assets served from the domain root). The second ensures /uk/-prefixed
+  // dotted files (e.g. /uk/sitemap.xml) still reach the middleware so they
+  // can be redirected to their root versions instead of 404ing.
+  matcher: ["/((?!api|_next|.*\\..*).*)", "/uk/:path*"],
 };
