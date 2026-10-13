@@ -106,13 +106,19 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 const NAV_OPEN_KEY = "sofora-admin-nav";
 
 function AdminNav({ pathname, newCount, newQueryCount }: { pathname: string; newCount: number; newQueryCount: number }) {
-  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+  // NOTE: localStorage is read in an effect (after mount), never during
+  // render. Reading it in the useState initializer makes the server HTML
+  // (no localStorage) differ from the first client render whenever the
+  // admin previously toggled a group — a React hydration error (#418) that
+  // flashes the page as React regenerates the tree.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem(NAV_OPEN_KEY) ?? "{}") as Record<string, boolean>;
+      setOpen(JSON.parse(localStorage.getItem(NAV_OPEN_KEY) ?? "{}") as Record<string, boolean>);
     } catch {
-      return {};
+      /* storage unavailable or corrupt — keep defaults */
     }
-  });
+  }, []);
 
   const toggle = (label: string) =>
     setOpen((o) => {
