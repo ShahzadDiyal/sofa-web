@@ -121,9 +121,17 @@ export default function ProductsPage() {
           <h1 className="text-[36px] leading-tight">Sofas</h1>
           <p className="text-muted mt-1.5">Your catalogue. Sofas only.</p>
         </div>
-        <Link href="/admin/products/new" className={btnAdminPrimary}>
-          <IconPlus size={18} /> Add sofa
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/products/was-prices"
+            className="text-sm font-semibold underline underline-offset-4"
+          >
+            Bulk was-prices
+          </Link>
+          <Link href="/admin/products/new" className={btnAdminPrimary}>
+            <IconPlus size={18} /> Add sofa
+          </Link>
+        </div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}
