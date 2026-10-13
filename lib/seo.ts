@@ -15,7 +15,7 @@ export const SITE_DESCRIPTION =
    build time). The fallback is the live Hostinger host — never leave the
    placeholder sofora.example here, or every canonical URL, OG tag and
    sitemap entry (and therefore Google thumbnails + link previews) breaks. */
-const PRODUCTION_URL = "https://dimgrey-dinosaur-511353.hostingersite.com";
+const PRODUCTION_URL = "https://lightblue-finch-328421.hostingersite.com";
 
 export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || PRODUCTION_URL).replace(/\/$/, "");

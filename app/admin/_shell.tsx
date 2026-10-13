@@ -207,7 +207,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [authChecked, setAuthChecked] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
 
-  const isLoginPage = pathname === "/admin/login";
+  // usePathname() normally returns the rewritten (unprefixed) path, but must
+  // never flip the login detection if it reports the public /uk form — a
+  // missed detection renders the shimmer instead of the form and bounces
+  // into an infinite login redirect loop (the "blinking" page).
+  const isLoginPage = pathname.endsWith("/admin/login");
 
   // Auth gate for the admin UI: the real security boundary is the API
   // (every admin route calls requireAdmin()), this keeps signed-out
