@@ -20,6 +20,13 @@ export const metadata: Metadata = {
       "Live Sofora discount codes and flash sofa offers. Apply at checkout and pay on delivery.",
     url: absoluteUrl("/coupons"),
     type: "website",
+    images: [{ url: absoluteUrl("/opengraph-image"), alt: "Sofora discount codes and sofa offers" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Discount codes & sofa offers | Sofora",
+    description: "Live Sofora discount codes and flash sofa offers. Apply at checkout and pay on delivery.",
+    images: [absoluteUrl("/opengraph-image")],
   },
 };
 

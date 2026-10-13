@@ -11,8 +11,14 @@ export const SITE_TAGLINE = "Sofas worth coming home to.";
 export const SITE_DESCRIPTION =
   "Sofora sells handcrafted sofas across the UK with cash on delivery: order online with no payment, we confirm by phone, deliver with a two-person team, and you pay the driver only after inspecting your sofa at the door.";
 
+/* Set NEXT_PUBLIC_SITE_URL to the production domain (it is baked in at
+   build time). The fallback is the live Hostinger host — never leave the
+   placeholder sofora.example here, or every canonical URL, OG tag and
+   sitemap entry (and therefore Google thumbnails + link previews) breaks. */
+const PRODUCTION_URL = "https://darkviolet-partridge-735457.hostingersite.com";
+
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://sofora.example").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_SITE_URL || PRODUCTION_URL).replace(/\/$/, "");
 }
 
 /* Every public page URL lives under /uk (the prefix is applied at the URL
@@ -23,6 +29,15 @@ export const BASE_PATH = "/uk";
 export function absoluteUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${siteUrl()}${BASE_PATH}${p}`;
+}
+
+/* Image URLs stored in the DB are usually absolute (Cloudinary), but an
+   admin-pasted relative path would silently break og:image and Google
+   thumbnails — both require absolute URLs. This makes any URL absolute. */
+export function absoluteImageUrl(url: string | null | undefined): string {
+  if (!url) return absoluteUrl("/opengraph-image");
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${siteUrl()}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 /* The API is served directly on /api/* (no /uk prefix). Pass the plain
@@ -146,7 +161,7 @@ export function productJsonLd(product: Product, categoryName?: string) {
     category: categoryName,
     url,
     brand: { "@type": "Brand", name: SITE_NAME },
-    image: product.imageUrl ? [product.imageUrl] : [absoluteUrl("/opengraph-image")],
+    image: [absoluteImageUrl(product.imageUrl)],
     ...(product.rating
       ? {
           aggregateRating: {
@@ -213,6 +228,7 @@ export function itemListJsonLd(products: Product[], listName: string, listUrl: s
       position: i + 1,
       url: absoluteUrl(`/sofas/${p.slug}`),
       name: p.name,
+      image: absoluteImageUrl(p.imageUrl),
     })),
   };
 }
@@ -233,6 +249,7 @@ export function blogPostJsonLd(post: Post) {
       logo: { "@type": "ImageObject", url: absoluteUrl("/icon.svg") },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": absoluteUrl(`/blog/${post.slug}`) },
+    image: [absoluteImageUrl(post.coverImage)],
     timeRequired: `PT${post.readingMinutes}M`,
   };
 }

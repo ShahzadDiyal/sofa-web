@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPost, listPosts } from "@/lib/db";
-import { absoluteUrl, blogPostJsonLd, breadcrumbJsonLd, postFaqJsonLd } from "@/lib/seo";
+import { absoluteImageUrl, absoluteUrl, blogPostJsonLd, breadcrumbJsonLd, postFaqJsonLd } from "@/lib/seo";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { JsonLd } from "@/components/storefront";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     withBlog.length <= 60 ? withBlog : base.length <= 60 ? base : `${base.slice(0, 57).trimEnd()}…`;
   const description = post.metaDescription || post.excerpt;
   const ogImage = {
-    url: absoluteUrl("/opengraph-image"),
+    url: absoluteImageUrl(post.coverImage),
     width: 1200,
     height: 630,
     alt: post.title,

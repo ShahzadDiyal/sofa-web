@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { listCategories, listPosts, listProducts } from "@/lib/db";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteImageUrl, absoluteUrl } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, categories, posts] = await Promise.all([
@@ -34,6 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: p.updatedAt ? new Date(p.updatedAt) : new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.9,
+    images: [absoluteImageUrl(p.imageUrl)],
   }));
 
   const categoryUrls = categories.map((c) => ({
@@ -41,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.7,
+    images: [absoluteImageUrl(c.imageUrl)],
   }));
 
   const postUrls = posts.map((p) => ({
@@ -48,6 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: p.updatedAt ? new Date(p.updatedAt) : new Date(),
     changeFrequency: "monthly" as const,
     priority: 0.8,
+    images: [absoluteImageUrl(p.coverImage)],
   }));
 
   return [...staticPages, ...categoryUrls, ...productUrls, ...postUrls];

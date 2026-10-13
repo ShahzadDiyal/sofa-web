@@ -6,6 +6,7 @@ import { absoluteUrl } from "@/lib/seo";
 import CollectionClient from "./CollectionClient";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const ogImage = absoluteUrl("/opengraph-image");
   return {
     title: "All sofas — pay on delivery",
     description:
@@ -16,6 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
       description: "Every sofa ships free across the UK and is paid for on delivery.",
       url: absoluteUrl("/sofas"),
       type: "website",
+      images: [{ url: ogImage, alt: "Sofora sofas — pay on delivery" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "All sofas — Sofora",
+      description: "Every sofa ships free across the UK and is paid for on delivery.",
+      images: [ogImage],
     },
   };
 }

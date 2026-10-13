@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { flashSaleTargets, getActiveFlashSales, getProductReviewStats, getSettings, listCategories, listColors, listFaqs, listProducts } from "@/lib/db";
 import FlashSaleRenderer from "@/components/FlashSaleRenderer";
-import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
+import { absoluteImageUrl, absoluteUrl, breadcrumbJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
 import { Breadcrumbs, JsonLd } from "@/components/storefront";
 import ProductClient from "./ProductClient";
 
@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     `${product.name} — ${product.sub}. Pay nothing online: we confirm by phone, deliver with a two-person team, and you pay the driver on delivery across the UK.`
   );
   const url = absoluteUrl(`/sofas/${product.slug}`);
+  const ogImage = absoluteImageUrl(product.imageUrl);
   return {
     title: name,
     description,
@@ -46,13 +47,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description,
       url,
       type: "website",
-      images: [{ url: product.imageUrl ?? absoluteUrl("/opengraph-image"), alt: product.name }],
+      images: [{ url: ogImage, alt: product.name }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [product.imageUrl ?? absoluteUrl("/opengraph-image")],
+      images: [ogImage],
     },
   };
 }

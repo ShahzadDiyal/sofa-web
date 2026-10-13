@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { listCategories, listColors, listFabrics, listProducts } from "@/lib/db";
-import { absoluteUrl, breadcrumbJsonLd } from "@/lib/seo";
+import { absoluteImageUrl, absoluteUrl, breadcrumbJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/storefront";
 import CollectionClient from "../../CollectionClient";
 
@@ -33,6 +33,7 @@ export async function generateMetadata({
     }`
   );
   const canonical = absoluteUrl(`/sofas/category/${category.slug}`);
+  const ogImage = absoluteImageUrl(category.imageUrl);
   return {
     title: { absolute: title },
     description,
@@ -42,6 +43,13 @@ export async function generateMetadata({
       description,
       url: canonical,
       type: "website",
+      images: [{ url: ogImage, alt: `${label} sofas — Sofora` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
     },
   };
 }
