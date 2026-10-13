@@ -14,6 +14,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     value: body.value !== undefined ? Number(body.value) : undefined,
     minSubtotal: body.minSubtotal === undefined ? undefined : body.minSubtotal === "" ? "" : Number(body.minSubtotal),
     maxUses: body.maxUses === undefined ? undefined : body.maxUses === "" ? "" : Number(body.maxUses),
+    productIds: body.productIds === undefined ? undefined : Array.isArray(body.productIds) ? body.productIds.map(String) : [],
     startsAt: body.startsAt,
     endsAt: body.endsAt,
     active: body.active,

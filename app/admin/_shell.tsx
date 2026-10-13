@@ -11,6 +11,7 @@ import {
   IconArrowRight,
   IconArticle,
   IconBolt,
+  IconChevronDown,
   IconDashboard,
   IconFabric,
   IconHeart,
@@ -28,27 +29,155 @@ import {
 import { api } from "./_ui";
 import AdminSearch from "./_search";
 import type { ContactQuery, Order } from "@/lib/types";
+import type { ComponentType } from "react";
 
-const NAV = [
+type IconT = ComponentType<{ size?: number; className?: string }>;
+
+interface NavLeaf {
+  href: string;
+  label: string;
+  Icon: IconT;
+  exact?: boolean;
+  badge?: boolean;
+  queryBadge?: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  Icon: IconT;
+  items: NavLeaf[];
+}
+
+type NavEntry = NavLeaf | NavGroup;
+
+const isGroup = (e: NavEntry): e is NavGroup => "items" in e;
+
+const NAV: NavEntry[] = [
   { href: "/uk/admin", label: "Dashboard", Icon: IconDashboard, exact: true },
-  { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
-  { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
-  { href: "/uk/admin/products", label: "Sofas", Icon: IconSofa },
-  { href: "/uk/admin/categories", label: "Categories", Icon: IconTag },
-  { href: "/uk/admin/colors", label: "Colours", Icon: IconPalette },
-  { href: "/uk/admin/fabrics", label: "Fabrics", Icon: IconFabric },
-  { href: "/uk/admin/product-reviews", label: "Reviews", Icon: IconHeart },
-  { href: "/uk/admin/coupons", label: "Coupons", Icon: IconTicket },
-  { href: "/uk/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
-  { href: "/uk/admin/posts", label: "Blog", Icon: IconArticle },
-  { href: "/uk/admin/customers", label: "Customers", Icon: IconPhone },
-  { href: "/uk/admin/users", label: "Users", Icon: IconShield },
-  { href: "/uk/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
-  { href: "/uk/admin/settings", label: "Settings", Icon: IconSettings },
+  {
+    label: "Products",
+    Icon: IconSofa,
+    items: [
+      { href: "/uk/admin/products", label: "Sofas", Icon: IconSofa },
+      { href: "/uk/admin/categories", label: "Categories", Icon: IconTag },
+      { href: "/uk/admin/colors", label: "Colours", Icon: IconPalette },
+      { href: "/uk/admin/fabrics", label: "Fabrics", Icon: IconFabric },
+      { href: "/uk/admin/product-reviews", label: "Reviews", Icon: IconHeart },
+    ],
+  },
+  {
+    label: "Content",
+    Icon: IconArticle,
+    items: [
+      { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
+      { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
+      { href: "/uk/admin/coupons", label: "Coupons", Icon: IconTicket },
+      { href: "/uk/admin/flash-sales", label: "Flash sales", Icon: IconBolt },
+      { href: "/uk/admin/posts", label: "Blog", Icon: IconArticle },
+      { href: "/uk/admin/customers", label: "Customers", Icon: IconPhone },
+      { href: "/uk/admin/users", label: "Users", Icon: IconShield },
+      { href: "/uk/admin/delivery", label: "Delivery & COD", Icon: IconTruck },
+      { href: "/uk/admin/settings", label: "Settings", Icon: IconSettings },
+    ],
+  },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
-  return exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
+  // Hrefs carry the public /uk prefix, but usePathname() returns the
+  // rewritten (unprefixed) path — compare against both forms.
+  const bare = href.replace(/^\/uk(?=\/|$)/, "");
+  const match = (p: string) => (exact ? pathname === p : pathname === p || pathname.startsWith(p + "/"));
+  return match(href) || match(bare);
+}
+
+const NAV_OPEN_KEY = "sofora-admin-nav";
+
+function AdminNav({ pathname, newCount, newQueryCount }: { pathname: string; newCount: number; newQueryCount: number }) {
+  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(NAV_OPEN_KEY) ?? "{}") as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  });
+
+  const toggle = (label: string) =>
+    setOpen((o) => {
+      const next = { ...o, [label]: !(o[label] ?? false) };
+      try {
+        localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(next));
+      } catch {
+        /* storage unavailable */
+      }
+      return next;
+    });
+
+  const linkCls = (active: boolean) =>
+    `flex items-center gap-3 px-3.5 py-[11px] rounded-[12px] font-medium text-[15px] min-h-[44px] transition whitespace-nowrap ${
+      active ? "bg-forest-deep text-cream" : "text-[#C9D6CC] hover:bg-[#27463C] hover:text-cream"
+    }`;
+
+  const badgeCount = (leaf: NavLeaf) => (leaf.badge ? newCount : leaf.queryBadge ? newQueryCount : 0);
+
+  const renderLeaf = (leaf: NavLeaf) => {
+    const active = isActive(pathname, leaf.href, leaf.exact);
+    const count = badgeCount(leaf);
+    return (
+      <Link key={leaf.href} href={leaf.href} className={linkCls(active)} aria-current={active ? "page" : undefined}>
+        <leaf.Icon size={20} />
+        <span>{leaf.label}</span>
+        {count > 0 && (
+          <span className="ml-auto bg-terra text-white rounded-full text-[12px] font-semibold px-2 py-0.5 min-w-[24px] text-center">
+            {count}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
+  return (
+    <>
+      {NAV.map((entry) => {
+        if (!isGroup(entry)) return renderLeaf(entry);
+        const groupActive = entry.items.some((i) => isActive(pathname, i.href, i.exact));
+        // A group holding the current page is always expanded; otherwise the
+        // admin's own toggle (remembered) decides.
+        const isOpen = groupActive || (open[entry.label] ?? false);
+        const groupBadge = entry.items.reduce((s, i) => s + badgeCount(i), 0);
+        return (
+          <div key={entry.label} className="flex items-center gap-1 lg:flex-col lg:items-stretch">
+            <button
+              type="button"
+              onClick={() => toggle(entry.label)}
+              aria-expanded={isOpen}
+              className={linkCls(groupActive) + " w-full text-left cursor-pointer"}
+            >
+              <entry.Icon size={20} />
+              <span>{entry.label}</span>
+              {groupBadge > 0 && (
+                <span className="ml-auto bg-terra text-white rounded-full text-[12px] font-semibold px-2 py-0.5 min-w-[24px] text-center">
+                  {groupBadge}
+                </span>
+              )}
+              <IconChevronDown
+                size={16}
+                className={`transition-transform ${isOpen ? "rotate-180" : ""} ${groupBadge > 0 ? "" : "ml-auto"}`}
+              />
+            </button>
+            {isOpen && (
+              <div className="flex gap-1 lg:flex-col lg:ml-4 lg:pl-2 lg:border-l lg:border-[#3A5A4F]">
+                {entry.items.map(renderLeaf)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <Link href="/uk/" className={linkCls(false)}>
+        <IconArrowRight size={20} />
+        <span>View store</span>
+      </Link>
+    </>
+  );
 }
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
@@ -110,35 +239,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     );
   }
 
-  const linkCls = (active: boolean) =>
-    `flex items-center gap-3 px-3.5 py-[11px] rounded-[12px] font-medium text-[15px] min-h-[44px] transition whitespace-nowrap ${
-      active ? "bg-forest-deep text-cream" : "text-[#C9D6CC] hover:bg-[#27463C] hover:text-cream"
-    }`;
-
-  const nav = (
-    <>
-      {NAV.map(({ href, label, Icon, exact, badge, queryBadge }) => {
-        const active = isActive(pathname, href, exact);
-        const count = badge ? newCount : queryBadge ? newQueryCount : 0;
-        const showBadge = (badge || queryBadge) && count > 0;
-        return (
-          <Link key={href} href={href} className={linkCls(active)} aria-current={active ? "page" : undefined}>
-            <Icon size={20} />
-            <span>{label}</span>
-            {showBadge && (
-              <span className="ml-auto bg-terra text-white rounded-full text-[12px] font-semibold px-2 py-0.5 min-w-[24px] text-center">
-                {count}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-      <Link href="/uk/" className={linkCls(false)}>
-        <IconArrowRight size={20} />
-        <span>View store</span>
-      </Link>
-    </>
-  );
+  const nav = <AdminNav pathname={pathname} newCount={newCount} newQueryCount={newQueryCount} />;
 
   return (
     <div className="min-h-screen bg-cream">

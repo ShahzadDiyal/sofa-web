@@ -242,9 +242,10 @@ export interface Coupon {
   code: string; // uppercase, e.g. "WELCOME10"
   type: "percent" | "fixed";
   value: number; // percent (1-90) or fixed GBP amount
-  minSubtotal?: number; // minimum basket subtotal in GBP
+  minSubtotal?: number; // minimum eligible subtotal in GBP
   maxUses?: number; // total redemptions allowed
   usedCount: number;
+  productIds?: string[]; // empty/undefined = applies to every product
   startsAt?: string; // ISO, optional
   endsAt?: string; // ISO, optional
   active: boolean;
@@ -252,15 +253,30 @@ export interface Coupon {
   updatedAt: string;
 }
 
-/* Flash sale banner (Admin → Flash sales). The currently-active one shows
-   as a prominent banner on the homepage. */
+/* Flash sale banner (Admin → Flash sales). Banners are fully adjustable:
+   pick a built-in template or paste custom HTML/CSS, choose an animation,
+   show inline or as a popup, and target pages and/or specific products. */
+export type FlashSaleTemplate = "classic" | "bold" | "minimal" | "strip" | "custom";
+export type FlashSaleAnimation = "none" | "fade-in" | "slide-up" | "pulse" | "marquee";
+export type FlashSaleDisplay = "inline" | "popup";
+export type FlashSalePage = "home" | "sofas" | "product" | "coupons";
+
 export interface FlashSale {
   id: string;
   title: string;
   subtitle?: string;
-  imageUrl?: string; // banner image (device upload → Cloudinary)
-  linkUrl?: string; // e.g. "/sofas?sale=1"
+  imageUrl?: string; // background image (device upload → Cloudinary)
+  linkUrl?: string; // e.g. "/uk/sofas?sale=1"
   linkLabel?: string; // CTA text, e.g. "Shop the sale"
+  template?: FlashSaleTemplate; // built-in design; "custom" uses contentHtml
+  animation?: FlashSaleAnimation;
+  displayMode?: FlashSaleDisplay; // inline banner vs popup overlay
+  closeable?: boolean; // show a dismiss button (popup + inline)
+  bgColor?: string; // background colour or CSS gradient
+  contentHtml?: string; // custom HTML (template = "custom")
+  customCss?: string; // extra CSS — borders, animations, anything
+  productIds?: string[]; // show on these product pages (empty = all, when targeted)
+  pages?: FlashSalePage[]; // where it may appear; empty = home (legacy behaviour)
   startsAt?: string; // ISO, optional
   endsAt?: string; // ISO, optional
   active: boolean;

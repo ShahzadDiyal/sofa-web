@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getActiveFlashSale, getSettings, listCategories, listFaqs, listProductReviews, listProducts } from "@/lib/db";
-import FlashSaleBanner from "@/components/FlashSaleBanner";
+import { flashSaleTargets, getActiveFlashSales, getSettings, listCategories, listFaqs, listProductReviews, listProducts } from "@/lib/db";
+import FlashSaleRenderer from "@/components/FlashSaleRenderer";
 import { seedSteps, seedWhy } from "@/lib/seed";
 import { absoluteUrl, defaultOgImage, gbp, itemListJsonLd, SITE_TAGLINE } from "@/lib/seo";
 import SofaIllustration from "@/components/SofaIllustration";
@@ -32,13 +32,13 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [products, categories, faqs, productReviews, settings, flashSale] = await Promise.all([
+  const [products, categories, faqs, productReviews, settings, flashSales] = await Promise.all([
     listProducts(),
     listCategories(),
     listFaqs(),
     listProductReviews(),
     getSettings(),
-    getActiveFlashSale(),
+    getActiveFlashSales(),
   ]);
   const homeReviews = productReviews.slice(0, 9);
   const inStock = products.filter((p) => p.inStock);
@@ -122,11 +122,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {flashSale && (
-        <div className="px-6 pt-10">
-          <FlashSaleBanner sale={flashSale} />
+      {flashSales.filter((s) => flashSaleTargets(s, "home") && (s.displayMode || "inline") === "inline").map((s) => (
+        <div key={s.id} className="px-6 pt-10">
+          <FlashSaleRenderer sale={s} />
         </div>
-      )}
+      ))}
+      {flashSales.filter((s) => flashSaleTargets(s, "home") && s.displayMode === "popup").map((s) => (
+        <FlashSaleRenderer key={s.id} sale={s} />
+      ))}
 
       {/* ── How it works ── */}
       <section id="how" className="bg-forest text-cream scroll-mt-20">

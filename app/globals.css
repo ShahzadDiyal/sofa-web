@@ -203,3 +203,34 @@ details.faq .faq-answer {
     animation: none;
   }
 }
+
+/* Flash-sale banner builder animations */
+@keyframes sofora-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sofora-slide-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sofora-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+@keyframes sofora-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.sofora-anim-fade-in { animation: sofora-fade-in 0.7s ease both; }
+.sofora-anim-slide-up { animation: sofora-slide-up 0.7s cubic-bezier(0.21, 1.02, 0.73, 1) both; }
+.sofora-anim-pulse { animation: sofora-pulse 2.4s ease-in-out infinite; }
+.sofora-anim-marquee-inner {
+  display: inline-flex;
+  width: max-content;
+  animation: sofora-marquee 16s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sofora-anim-fade-in, .sofora-anim-slide-up, .sofora-anim-pulse, .sofora-anim-marquee-inner {
+    animation: none;
+  }
+}

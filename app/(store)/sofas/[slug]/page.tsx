@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getProductReviewStats, getSettings, listCategories, listColors, listFaqs, listProducts } from "@/lib/db";
+import { flashSaleTargets, getActiveFlashSales, getProductReviewStats, getSettings, listCategories, listColors, listFaqs, listProducts } from "@/lib/db";
+import FlashSaleRenderer from "@/components/FlashSaleRenderer";
 import { absoluteUrl, breadcrumbJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
 import { Breadcrumbs, JsonLd } from "@/components/storefront";
 import ProductClient from "./ProductClient";
@@ -58,12 +59,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [products, categories, faqs, settings, colors] = await Promise.all([
+  const [products, categories, faqs, settings, colors, flashSales] = await Promise.all([
     listProducts(),
     listCategories(),
     listFaqs(),
     getSettings(),
     listColors(),
+    getActiveFlashSales(),
   ]);
   const product = products.find((p) => p.slug === slug);
   if (!product) notFound();
@@ -75,6 +77,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     .slice(0, 4);
   const reviewStats = await getProductReviewStats([product.id]);
   const stats = reviewStats.get(product.id) ?? { count: 0, avg: 0 };
+  const targetedSales = flashSales.filter((s) => flashSaleTargets(s, "product", product.id));
 
   return (
     <>
@@ -99,6 +102,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </div>
 
       <ProductClient product={product} related={related} faqs={faqs} settings={settings} reviewStats={stats} colors={colors} />
+
+      {targetedSales.filter((s) => (s.displayMode || "inline") === "inline").map((s) => (
+        <div key={s.id} className="mx-auto px-6 pt-8">
+          <FlashSaleRenderer sale={s} />
+        </div>
+      ))}
+      {targetedSales.filter((s) => s.displayMode === "popup").map((s) => (
+        <FlashSaleRenderer key={s.id} sale={s} />
+      ))}
     </>
   );
 }

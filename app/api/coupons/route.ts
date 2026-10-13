@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     value,
     minSubtotal: body.minSubtotal ? Number(body.minSubtotal) : undefined,
     maxUses: body.maxUses ? Number(body.maxUses) : undefined,
+    productIds: Array.isArray(body.productIds) ? body.productIds.map(String) : [],
     startsAt: body.startsAt || undefined,
     endsAt: body.endsAt || undefined,
     active: body.active !== false,

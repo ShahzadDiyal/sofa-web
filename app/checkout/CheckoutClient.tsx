@@ -30,7 +30,13 @@ function nextSlots(): { day: string; time: string; value: string }[] {
 const inputCls = "field-input";
 const panel = "bg-white rounded-[20px] p-6 md:p-7 flex flex-col gap-5 shadow-[0_1px_2px_rgba(30,36,33,0.04)]";
 
-export default function CheckoutClient({ settings }: { settings: SiteSettings }) {
+export default function CheckoutClient({
+  settings,
+  activeCoupons,
+}: {
+  settings: SiteSettings;
+  activeCoupons: { code: string; productIds: string[] }[];
+}) {
   const router = useRouter();
   const { basket, setQty, removeFromBasket, clearBasket, basketTotal } = useStore();
   const slots = useMemo(nextSlots, []);
@@ -66,7 +72,11 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
       const res = await fetch(apiUrl("/api/coupons/validate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: c, subtotal }),
+        body: JSON.stringify({
+          code: c,
+          subtotal,
+          items: basket.map((i) => ({ productId: i.productId, price: i.price, qty: i.qty })),
+        }),
       });
       const data = await res.json();
       if (!data.valid) {
@@ -102,6 +112,16 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
     if (coupon) applyCoupon(coupon, basketTotal, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basketTotal]);
+
+  /* The coupon field only appears when at least one live coupon applies to
+     the sofas in the basket — a code scoped to other sofas stays hidden. */
+  const couponFieldVisible = useMemo(() => {
+    if (coupon) return true;
+    if (basket.length === 0) return false;
+    return activeCoupons.some(
+      (c) => c.productIds.length === 0 || basket.some((i) => c.productIds.includes(i.productId))
+    );
+  }, [activeCoupons, basket, coupon]);
 
   const set = (k: keyof typeof form, v: string | boolean) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -394,6 +414,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                   )}
                 </div>
               </div>
+              {couponFieldVisible && (
               <div>
                 {coupon ? (
                   <div className="flex justify-between items-center bg-mint rounded-[14px] px-4 py-3 text-[14px]">
@@ -429,6 +450,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                   </div>
                 )}
               </div>
+              )}
               <div className="border-t border-line pt-4 flex justify-between items-baseline">
                 <span className="font-semibold">Due on delivery</span>
                 <span className="font-serif font-semibold text-[30px]">{gbp(due)}.00</span>

@@ -391,6 +391,7 @@ function rowToCoupon(r: Record<string, unknown>): Coupon {
     minSubtotal: r.minSubtotal == null ? undefined : toNum(r.minSubtotal),
     maxUses: r.maxUses == null ? undefined : toNum(r.maxUses),
     usedCount: toNum(r.usedCount),
+    productIds: parseJson<string[]>(r.productIds, []).filter((s) => typeof s === "string"),
     startsAt: (r.startsAt as string) ?? undefined,
     endsAt: (r.endsAt as string) ?? undefined,
     active: toBool(r.active),
@@ -400,6 +401,8 @@ function rowToCoupon(r: Record<string, unknown>): Coupon {
 }
 
 function rowToFlashSale(r: Record<string, unknown>): FlashSale {
+  const strArr = (v: unknown): string[] =>
+    (Array.isArray(v) ? v : parseJson<string[]>(v, [])).filter((s): s is string => typeof s === "string");
   return {
     id: String(r.id),
     title: String(r.title ?? ""),
@@ -407,6 +410,15 @@ function rowToFlashSale(r: Record<string, unknown>): FlashSale {
     imageUrl: (r.imageUrl as string) ?? undefined,
     linkUrl: (r.linkUrl as string) ?? undefined,
     linkLabel: (r.linkLabel as string) ?? undefined,
+    template: (r.template as FlashSale["template"]) ?? undefined,
+    animation: (r.animation as FlashSale["animation"]) ?? undefined,
+    displayMode: (r.displayMode as FlashSale["displayMode"]) ?? undefined,
+    closeable: r.closeable == null ? undefined : toBool(r.closeable),
+    bgColor: (r.bgColor as string) ?? undefined,
+    contentHtml: (r.contentHtml as string) ?? undefined,
+    customCss: (r.customCss as string) ?? undefined,
+    productIds: strArr(r.productIds),
+    pages: strArr(r.pages) as FlashSale["pages"],
     startsAt: (r.startsAt as string) ?? undefined,
     endsAt: (r.endsAt as string) ?? undefined,
     active: toBool(r.active),
@@ -827,7 +839,7 @@ export async function createOrder(input: {
     let couponCode: string | undefined;
     let couponId: string | undefined;
     if (input.couponCode?.trim()) {
-      const v = await validateCoupon(input.couponCode, subtotal);
+      const v = await validateCoupon(input.couponCode, subtotal, input.items);
       if (v.valid && v.coupon) {
         discount = v.discount;
         couponCode = v.coupon.code;
@@ -1355,13 +1367,14 @@ export async function listCoupons(): Promise<Coupon[]> {
 }
 
 export async function saveCoupon(
-  input: Partial<Omit<Coupon, "minSubtotal" | "maxUses" | "startsAt" | "endsAt" | "value">> & {
+  input: Partial<Omit<Coupon, "minSubtotal" | "maxUses" | "startsAt" | "endsAt" | "value" | "productIds">> & {
     code?: string;
     value?: number;
     minSubtotal?: number | ""; // "" clears the field
     maxUses?: number | ""; // "" clears the field
     startsAt?: string | ""; // "" clears the field
     endsAt?: string | ""; // "" clears the field
+    productIds?: string[];
   }
 ): Promise<Coupon> {
   try {
@@ -1381,6 +1394,11 @@ export async function saveCoupon(
             else (cur as unknown as Record<string, unknown>)[k] = v;
           }
         }
+        if (input.productIds !== undefined) {
+          cur.productIds = (Array.isArray(input.productIds) ? input.productIds : [])
+            .map((s) => String(s))
+            .filter(Boolean);
+        }
         cur.updatedAt = nowIso;
         await upsertRow("coupons", couponToRow(cur));
         return cur;
@@ -1393,6 +1411,7 @@ export async function saveCoupon(
         minSubtotal: input.minSubtotal ? Number(input.minSubtotal) : undefined,
         maxUses: input.maxUses ? Number(input.maxUses) : undefined,
         usedCount: 0,
+        productIds: Array.isArray(input.productIds) ? input.productIds.map(String).filter(Boolean) : [],
         startsAt: input.startsAt || undefined,
         endsAt: input.endsAt || undefined,
         active: input.active !== false,
@@ -1415,6 +1434,9 @@ export async function saveCoupon(
           if (input.active !== undefined) cur.active = input.active;
           if (input.startsAt !== undefined) { if (input.startsAt) cur.startsAt = input.startsAt as string; else delete cur.startsAt; }
           if (input.endsAt !== undefined) { if (input.endsAt) cur.endsAt = input.endsAt as string; else delete cur.endsAt; }
+          if (input.productIds !== undefined) {
+            cur.productIds = (Array.isArray(input.productIds) ? input.productIds : []).map((s) => String(s)).filter(Boolean);
+          }
           cur.updatedAt = nowIso;
           s.coupons[i] = cur;
           return cur;
@@ -1428,6 +1450,7 @@ export async function saveCoupon(
         minSubtotal: input.minSubtotal ? Number(input.minSubtotal) : undefined,
         maxUses: input.maxUses ? Number(input.maxUses) : undefined,
         usedCount: 0,
+        productIds: Array.isArray(input.productIds) ? input.productIds.map(String).filter(Boolean) : [],
         startsAt: (input.startsAt as string) || undefined,
         endsAt: (input.endsAt as string) || undefined,
         active: input.active !== false,
@@ -1451,6 +1474,7 @@ function couponToRow(c: Coupon): Record<string, unknown> {
     minSubtotal: nullIfUndef(c.minSubtotal),
     maxUses: nullIfUndef(c.maxUses),
     usedCount: c.usedCount,
+    productIds: c.productIds?.length ? toJson(c.productIds) : null,
     startsAt: nullIfUndef(c.startsAt),
     endsAt: nullIfUndef(c.endsAt),
     active: c.active ? 1 : 0,
@@ -1474,10 +1498,13 @@ export async function deleteCoupon(id: string): Promise<void> {
   }
 }
 
-/** Validate a coupon code against the current basket subtotal (server-side). */
+/** Validate a coupon code against the current basket (server-side).
+    When the coupon is scoped to specific products, the discount (and the
+    minimum-subtotal check) apply to the eligible items' subtotal only. */
 export async function validateCoupon(
   code: string,
-  subtotal: number
+  subtotal: number,
+  items?: { productId: string; price: number; qty: number }[]
 ): Promise<{ valid: boolean; coupon?: Coupon; discount: number; reason?: string }> {
   const now = Date.now();
   const wanted = code.trim().toUpperCase();
@@ -1499,7 +1526,17 @@ export async function validateCoupon(
     return { valid: false, discount: 0, reason: "That code has expired." };
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses)
     return { valid: false, discount: 0, reason: "That code has reached its usage limit." };
-  if (coupon.minSubtotal && subtotal < coupon.minSubtotal)
+  // Product scoping: only the scoped products' subtotal counts.
+  const scoped = (coupon.productIds ?? []).length > 0;
+  const eligibleSubtotal = scoped
+    ? (items ?? []).reduce(
+        (s, i) => s + (coupon!.productIds!.includes(i.productId) ? i.price * i.qty : 0),
+        0
+      )
+    : subtotal;
+  if (scoped && eligibleSubtotal <= 0)
+    return { valid: false, discount: 0, reason: "That code doesn't apply to the sofas in your basket." };
+  if (coupon.minSubtotal && eligibleSubtotal < coupon.minSubtotal)
     return {
       valid: false,
       discount: 0,
@@ -1507,9 +1544,22 @@ export async function validateCoupon(
     };
   const discount =
     coupon.type === "percent"
-      ? Math.min(subtotal, Math.round((subtotal * Math.min(coupon.value, 90)) / 100))
-      : Math.min(subtotal, coupon.value);
+      ? Math.min(eligibleSubtotal, Math.round((eligibleSubtotal * Math.min(coupon.value, 90)) / 100))
+      : Math.min(eligibleSubtotal, coupon.value);
   return { valid: true, coupon, discount };
+}
+
+/** Coupons currently usable on the storefront (active + within date range). */
+export async function listActiveCoupons(): Promise<Coupon[]> {
+  const all = await listCoupons();
+  const now = Date.now();
+  return all.filter(
+    (c) =>
+      c.active &&
+      (!c.startsAt || Date.parse(c.startsAt) <= now) &&
+      (!c.endsAt || Date.parse(c.endsAt) >= now) &&
+      (!c.maxUses || c.usedCount < c.maxUses)
+  );
 }
 
 async function incrementCouponUse(id: string): Promise<void> {
@@ -1562,6 +1612,33 @@ export async function getActiveFlashSale(): Promise<FlashSale | null> {
   );
 }
 
+/** Every flash sale currently live on the storefront. */
+export async function getActiveFlashSales(): Promise<FlashSale[]> {
+  const all = await listFlashSales();
+  const now = Date.now();
+  return all.filter(
+    (s) =>
+      s.active &&
+      (!s.startsAt || Date.parse(s.startsAt) <= now) &&
+      (!s.endsAt || Date.parse(s.endsAt) >= now)
+  );
+}
+
+/** Does this banner target the given page / product? Empty pages = home (legacy). */
+export function flashSaleTargets(
+  sale: FlashSale,
+  page: "home" | "sofas" | "product" | "coupons",
+  productId?: string
+): boolean {
+  const pages = sale.pages ?? [];
+  const pageOk = pages.length === 0 ? page === "home" : pages.includes(page);
+  if (!pageOk) return false;
+  if (page === "product" && (sale.productIds ?? []).length > 0) {
+    return !!productId && sale.productIds!.includes(productId);
+  }
+  return true;
+}
+
 function flashSaleToRow(s: FlashSale): Record<string, unknown> {
   return {
     id: s.id,
@@ -1570,6 +1647,15 @@ function flashSaleToRow(s: FlashSale): Record<string, unknown> {
     imageUrl: nullIfUndef(s.imageUrl),
     linkUrl: nullIfUndef(s.linkUrl),
     linkLabel: nullIfUndef(s.linkLabel),
+    template: nullIfUndef(s.template),
+    animation: nullIfUndef(s.animation),
+    displayMode: nullIfUndef(s.displayMode),
+    closeable: s.closeable == null ? null : s.closeable ? 1 : 0,
+    bgColor: nullIfUndef(s.bgColor),
+    contentHtml: nullIfUndef(s.contentHtml),
+    customCss: nullIfUndef(s.customCss),
+    productIds: s.productIds?.length ? toJson(s.productIds) : null,
+    pages: s.pages?.length ? toJson(s.pages) : null,
     startsAt: nullIfUndef(s.startsAt),
     endsAt: nullIfUndef(s.endsAt),
     active: s.active ? 1 : 0,
@@ -1588,7 +1674,7 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
         const list = rows as Record<string, unknown>[];
         if (!list.length) throw new Error("Flash sale not found.");
         const cur = rowToFlashSale(list[0]);
-        for (const k of ["title", "subtitle", "imageUrl", "linkUrl", "linkLabel", "startsAt", "endsAt"] as const) {
+        for (const k of ["title", "subtitle", "imageUrl", "linkUrl", "linkLabel", "startsAt", "endsAt", "template", "animation", "displayMode", "bgColor", "contentHtml", "customCss"] as const) {
           const v = input[k];
           if (v !== undefined) {
             if (v) (cur as unknown as Record<string, unknown>)[k] = v;
@@ -1596,6 +1682,13 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
           }
         }
         if (input.active !== undefined) cur.active = input.active;
+        if (input.closeable !== undefined) cur.closeable = input.closeable;
+        if (input.productIds !== undefined) {
+          cur.productIds = (Array.isArray(input.productIds) ? input.productIds : []).map(String).filter(Boolean);
+        }
+        if (input.pages !== undefined) {
+          cur.pages = (Array.isArray(input.pages) ? input.pages : []).map(String).filter(Boolean) as FlashSale["pages"];
+        }
         cur.updatedAt = nowIso;
         await upsertRow("flash_sales", flashSaleToRow(cur));
         return cur;
@@ -1607,6 +1700,15 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
         imageUrl: (input.imageUrl as string) || undefined,
         linkUrl: (input.linkUrl as string) || undefined,
         linkLabel: (input.linkLabel as string) || undefined,
+        template: (input.template as FlashSale["template"]) || undefined,
+        animation: (input.animation as FlashSale["animation"]) || undefined,
+        displayMode: (input.displayMode as FlashSale["displayMode"]) || undefined,
+        closeable: input.closeable,
+        bgColor: (input.bgColor as string) || undefined,
+        contentHtml: (input.contentHtml as string) || undefined,
+        customCss: (input.customCss as string) || undefined,
+        productIds: Array.isArray(input.productIds) ? input.productIds.map(String).filter(Boolean) : [],
+        pages: (Array.isArray(input.pages) ? input.pages.map(String).filter(Boolean) : []) as FlashSale["pages"],
         startsAt: (input.startsAt as string) || undefined,
         endsAt: (input.endsAt as string) || undefined,
         active: input.active !== false,
@@ -1629,6 +1731,13 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
             }
           }
           if (input.active !== undefined) cur.active = input.active;
+          if (input.closeable !== undefined) cur.closeable = input.closeable;
+          if (input.productIds !== undefined) {
+            cur.productIds = (Array.isArray(input.productIds) ? input.productIds : []).map(String).filter(Boolean);
+          }
+          if (input.pages !== undefined) {
+            cur.pages = (Array.isArray(input.pages) ? input.pages : []).map(String).filter(Boolean) as FlashSale["pages"];
+          }
           cur.updatedAt = nowIso;
           s.flashSales[i] = cur;
           return cur;
@@ -1641,6 +1750,15 @@ export async function saveFlashSale(input: Partial<FlashSale> & { title?: string
         imageUrl: (input.imageUrl as string) || undefined,
         linkUrl: (input.linkUrl as string) || undefined,
         linkLabel: (input.linkLabel as string) || undefined,
+        template: (input.template as FlashSale["template"]) || undefined,
+        animation: (input.animation as FlashSale["animation"]) || undefined,
+        displayMode: (input.displayMode as FlashSale["displayMode"]) || undefined,
+        closeable: input.closeable,
+        bgColor: (input.bgColor as string) || undefined,
+        contentHtml: (input.contentHtml as string) || undefined,
+        customCss: (input.customCss as string) || undefined,
+        productIds: Array.isArray(input.productIds) ? input.productIds.map(String).filter(Boolean) : [],
+        pages: (Array.isArray(input.pages) ? input.pages.map(String).filter(Boolean) : []) as FlashSale["pages"],
         startsAt: (input.startsAt as string) || undefined,
         endsAt: (input.endsAt as string) || undefined,
         active: input.active !== false,
