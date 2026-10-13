@@ -15,6 +15,8 @@ import {
   api,
   btnAdmin,
   usePagination,
+  refreshAdminBadges,
+  RefreshButton,
 } from "../_ui";
 import { notificationIcon, timeAgo } from "../_notifications";
 import type { AdminNotification } from "@/lib/db";
@@ -35,12 +37,12 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<AdminNotification[] | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = (t: Tab) => {
-    setItems(null);
+  const fetchItems = (t: Tab) => {
     setError("");
     const qs = t === "all" ? "" : `&type=${t}`;
-    api<{ notifications: AdminNotification[]; unreadCount: number }>(
+    return api<{ notifications: AdminNotification[]; unreadCount: number }>(
       `/api/admin/notifications?limit=200${qs}`
     )
       .then(({ notifications, unreadCount }) => {
@@ -52,10 +54,20 @@ export default function NotificationsPage() {
       );
   };
 
+  const load = (t: Tab) => {
+    setItems(null);
+    return fetchItems(t);
+  };
+
   useEffect(() => {
     load(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    fetchItems(tab).finally(() => setRefreshing(false));
+  };
 
   const pg = usePagination(items ?? []);
 
@@ -64,6 +76,7 @@ export default function NotificationsPage() {
       await api("/api/admin/notifications/read", "POST", { all: true });
       setItems((prev) => (prev ?? []).map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
+      refreshAdminBadges();
       toast.success("Notifications", "All notifications marked as read.");
     } catch (e) {
       toast.error(
@@ -81,6 +94,7 @@ export default function NotificationsPage() {
     } catch {
       // Navigation still happens; the list re-syncs on next load.
     }
+    refreshAdminBadges();
     router.push(n.link);
   };
 
@@ -103,6 +117,7 @@ export default function NotificationsPage() {
         >
           Mark all as read
         </button>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       <div className="flex flex-wrap gap-2">

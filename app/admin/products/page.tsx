@@ -21,6 +21,7 @@ import {
   tdClass,
   thClass,
   usePagination,
+  RefreshButton,
 } from "../_ui";
 
 type Tab = "all" | "live" | "draft";
@@ -33,10 +34,11 @@ export default function ProductsPage() {
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    Promise.all([
+    return Promise.all([
       api<{ products: Product[] }>("/api/products"),
       api<{ categories: Category[] }>("/api/categories").catch(() => ({ categories: [] as Category[] })),
     ])
@@ -46,7 +48,14 @@ export default function ProductsPage() {
       })
       .catch((e) => setError(e.message || "Could not load sofas."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const catName = (slug: string) =>
     categories.find((c) => c.slug === slug)?.name ??
@@ -131,6 +140,7 @@ export default function ProductsPage() {
           <Link href="/uk/admin/products/new" className={btnAdminPrimary}>
             <IconPlus size={18} /> Add sofa
           </Link>
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
         </div>
       </div>
 

@@ -18,8 +18,10 @@ import {
   btnAdminPrimary,
   fieldClass,
   labelClass,
+  refreshAdminBadges,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -39,13 +41,21 @@ export default function QueriesPage() {
   const [reply, setReply] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<ContactQuery | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ queries: ContactQuery[] }>("/api/queries")
+    return api<{ queries: ContactQuery[] }>("/api/queries")
       .then(({ queries }) => setQueries(queries))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load queries."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const filtered = useMemo(() => {
     let list = queries ?? [];
@@ -68,6 +78,7 @@ export default function QueriesPage() {
         const { query } = await api<{ query: ContactQuery }>(`/api/queries/${item.id}`, "PATCH", { status: "read" });
         setQueries((qs) => (qs ?? []).map((x) => (x.id === item.id ? query : x)));
         setOpen(query);
+        refreshAdminBadges();
       } catch { /* non-fatal */ }
     }
   };
@@ -81,6 +92,7 @@ export default function QueriesPage() {
       setOpen(query);
       setReply(query.reply ?? "");
       toast.success("Reply sent", "Your reply was saved to this query.");
+      refreshAdminBadges();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save reply.";
       setError(msg);
@@ -110,9 +122,12 @@ export default function QueriesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[30px]">Queries</h1>
-        <p className="text-muted text-[14px] mt-1">Messages from the contact page form. Click one to read and reply.</p>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[30px]">Queries</h1>
+          <p className="text-muted text-[14px] mt-1">Messages from the contact page form. Click one to read and reply.</p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

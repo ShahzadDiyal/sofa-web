@@ -18,6 +18,7 @@ import {
   labelClass,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -64,10 +65,11 @@ export default function CategoriesPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Category | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    Promise.all([
+    return Promise.all([
       api<{ categories: Category[] }>("/api/categories"),
       api<{ products: Product[] }>("/api/products").catch(() => ({ products: [] as Product[] })),
     ])
@@ -77,7 +79,14 @@ export default function CategoriesPage() {
       })
       .catch((e) => setError(e.message || "Could not load categories."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const counts = useMemo(() => {
     const m = new Map<string, number>();
@@ -151,6 +160,7 @@ export default function CategoriesPage() {
         <button className={btnAdminPrimary} onClick={openNew}>
           <IconPlus size={18} /> Add category
         </button>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

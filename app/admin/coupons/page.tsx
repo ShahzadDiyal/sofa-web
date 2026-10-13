@@ -19,6 +19,7 @@ import {
   btnAdminPrimary,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -28,13 +29,21 @@ export default function CouponsPage() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [deleting, setDeleting] = useState<Coupon | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ coupons: Coupon[] }>("/api/coupons")
+    return api<{ coupons: Coupon[] }>("/api/coupons")
       .then(({ coupons }) => setCoupons(coupons))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load coupons."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -75,6 +84,7 @@ export default function CouponsPage() {
         <Link href="/uk/admin/coupons/new" className={btnAdminPrimary}>
           <IconPlus size={16} /> Add coupon
         </Link>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

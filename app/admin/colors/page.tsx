@@ -21,6 +21,7 @@ import {
   labelClass,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -59,16 +60,26 @@ export default function ColorsPage() {
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Color | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ colors: Color[] }>("/api/colors")
-      .then(({ colors }) => setColors(colors))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load colours."));
-    api<{ products: Product[] }>("/api/products")
-      .then(({ products }) => setProducts(products))
-      .catch(() => {});
+    return Promise.all([
+      api<{ colors: Color[] }>("/api/colors")
+        .then(({ colors }) => setColors(colors))
+        .catch((e) => setError(e instanceof Error ? e.message : "Failed to load colours.")),
+      api<{ products: Product[] }>("/api/products")
+        .then(({ products }) => setProducts(products))
+        .catch(() => {}),
+    ]);
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const usage = useMemo(() => {
     const m = new Map<string, number>();
@@ -142,6 +153,7 @@ export default function ColorsPage() {
         <button className={btnAdminPrimary} onClick={openNew}>
           <IconPlus size={16} /> Add colour
         </button>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

@@ -20,6 +20,7 @@ import {
   fieldClass,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -31,16 +32,26 @@ export default function ProductReviewsPage() {
   const [q, setQ] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [deleting, setDeleting] = useState<ProductReview | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ reviews: ProductReview[] }>("/api/product-reviews?limit=500")
-      .then(({ reviews }) => setReviews(reviews))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load reviews."));
-    api<{ products: Product[] }>("/api/products")
-      .then(({ products }) => setProducts(products))
-      .catch(() => {});
+    return Promise.all([
+      api<{ reviews: ProductReview[] }>("/api/product-reviews?limit=500")
+        .then(({ reviews }) => setReviews(reviews))
+        .catch((e) => setError(e instanceof Error ? e.message : "Failed to load reviews.")),
+      api<{ products: Product[] }>("/api/products")
+        .then(({ products }) => setProducts(products))
+        .catch(() => {}),
+    ]);
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const filtered = useMemo(() => {
     let list = reviews ?? [];
@@ -80,11 +91,14 @@ export default function ProductReviewsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[30px]">Product reviews</h1>
-        <p className="text-muted text-[14px] mt-1">
-          {reviews === null ? "Loading…" : `${reviews.length} reviews`} across the catalogue. Shown on product pages and <Link href="/uk/reviews" className="underline">/reviews</Link>.
-        </p>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[30px]">Product reviews</h1>
+          <p className="text-muted text-[14px] mt-1">
+            {reviews === null ? "Loading…" : `${reviews.length} reviews`} across the catalogue. Shown on product pages and <Link href="/uk/reviews" className="underline">/reviews</Link>.
+          </p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

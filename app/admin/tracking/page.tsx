@@ -14,6 +14,7 @@ import {
   api,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -42,15 +43,15 @@ export default function TrackingPage() {
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
     return () => clearTimeout(t);
   }, [q]);
 
-  useEffect(() => {
-    setVisits(null);
-    api<{ visits: Visit[]; total: number }>(
+  const fetchVisits = () => {
+    return api<{ visits: Visit[]; total: number }>(
       `/api/admin/visits?limit=200${debouncedQ ? `&q=${encodeURIComponent(debouncedQ)}` : ""}`
     )
       .then(({ visits, total }) => {
@@ -58,7 +59,18 @@ export default function TrackingPage() {
         setTotal(total);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load tracking data."));
+  };
+
+  useEffect(() => {
+    setVisits(null);
+    fetchVisits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    fetchVisits().finally(() => setRefreshing(false));
+  };
 
   const pg = usePagination(visits ?? []);
 
@@ -71,14 +83,17 @@ export default function TrackingPage() {
             {total} visitor{total === 1 ? "" : "s"} opened the chat widget
           </p>
         </div>
-        <div className="ml-auto relative">
-          <IconSearch size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, email, page, IP…"
-            className="bg-white border-[1.5px] border-line rounded-[12px] pl-10 pr-4 min-h-[44px] text-[14px] outline-none focus:border-forest transition placeholder:text-muted/70 w-[260px]"
-          />
+        <div className="ml-auto relative flex items-center gap-3">
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
+          <div className="relative">
+            <IconSearch size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search name, email, page, IP…"
+              className="bg-white border-[1.5px] border-line rounded-[12px] pl-10 pr-4 min-h-[44px] text-[14px] outline-none focus:border-forest transition placeholder:text-muted/70 w-[260px]"
+            />
+          </div>
         </div>
       </div>
 

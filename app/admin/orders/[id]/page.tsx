@@ -24,6 +24,8 @@ import {
   fmtDateTime,
   initials,
   patchOrder,
+  refreshAdminBadges,
+  RefreshButton,
 } from "../../_ui";
 
 const STAGES = ["Order placed", "Confirmed", "Out for delivery", "Delivered & paid"];
@@ -59,10 +61,11 @@ export default function OrderDetailPage() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [payMethod, setPayMethod] = useState("Cash");
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    Promise.all([
+    return Promise.all([
       api<{ order: Order }>(`/api/orders/${id}`).then((r) => r.order),
       api<{ orders: Order[] }>("/api/orders").then((r) => r.orders),
       api<{ products: Product[] }>("/api/products")
@@ -78,7 +81,14 @@ export default function OrderDetailPage() {
       })
       .catch((e) => setError(e.message || "Could not load order."));
   };
-  useEffect(load, [id]);
+  useEffect(() => {
+    void load();
+  }, [id]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const mutate = async (status: OrderStatus, noteText?: string) => {
     if (!order) return;
@@ -88,6 +98,7 @@ export default function OrderDetailPage() {
       setOrder(updated);
       setAllOrders((all) => all.map((o) => (o.id === updated.id ? updated : o)));
       toast.success(`Order ${updated.number} updated`, `Status set to “${STATUS_META[status].label}”.`);
+      refreshAdminBadges();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Update failed.";
       setError(msg);
@@ -207,6 +218,7 @@ export default function OrderDetailPage() {
           <StatusPill status={order.status} />
         </div>
         <div className="flex gap-2.5 flex-wrap">
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
           <button className={btnAdmin} onClick={() => window.print()}>
             Print delivery note
           </button>

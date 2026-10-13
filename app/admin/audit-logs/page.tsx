@@ -18,6 +18,7 @@ import {
   tdClass,
   thClass,
   usePagination,
+  RefreshButton,
 } from "../_ui";
 
 const PAGE_LIMIT = 200;
@@ -60,6 +61,7 @@ export default function AuditLogsPage() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Debounce the search box so typing doesn't refetch on every keystroke.
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function AuditLogsPage() {
     if (admin) sp.set("adminEmail", admin);
     if (q) sp.set("q", q);
     setError("");
-    api<{ logs: AuditLog[]; total: number; facets: Facets }>(`/api/admin/audit-logs?${sp}`)
+    return api<{ logs: AuditLog[]; total: number; facets: Facets }>(`/api/admin/audit-logs?${sp}`)
       .then(({ logs, total, facets }) => {
         setLogs(logs);
         setTotal(total);
@@ -82,7 +84,14 @@ export default function AuditLogsPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load audit logs."));
   }, [action, admin, q]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const pg = usePagination(logs ?? []);
 
@@ -90,12 +99,15 @@ export default function AuditLogsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[30px]">Audit logs</h1>
-        <p className="text-muted text-[14px] mt-1">
-          Every admin action is recorded here — sign-ins, product changes, order status updates, coupon edits and more.
-          {total > 0 && <span className="font-semibold text-ink"> {total} entr{total === 1 ? "y" : "ies"}</span>}
-        </p>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[30px]">Audit logs</h1>
+          <p className="text-muted text-[14px] mt-1">
+            Every admin action is recorded here — sign-ins, product changes, order status updates, coupon edits and more.
+            {total > 0 && <span className="font-semibold text-ink"> {total} entr{total === 1 ? "y" : "ies"}</span>}
+          </p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

@@ -10,6 +10,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { mysqlPool, parseJson, toJson, toBool, toNum, nullIfUndef } from "./mysql";
 import type { Pool } from "mysql2/promise";
+import { sendOrderEmails, sendQueryEmail } from "./email";
 import {
   seedCategories,
   seedColors,
@@ -903,6 +904,7 @@ export async function createOrder(input: {
         link: `/uk/admin/orders/${order.id}`,
         refId: order.id,
       });
+      void sendOrderEmails(order);
       return order;
     }
     return mutateLocal((s) => {
@@ -938,6 +940,7 @@ export async function createOrder(input: {
         link: `/uk/admin/orders/${order.id}`,
         refId: order.id,
       });
+      void sendOrderEmails(order);
       return order;
     });
   } finally {
@@ -1302,6 +1305,7 @@ export async function createQuery(input: {
         link: `/uk/admin/queries`,
         refId: q.id,
       });
+      void sendQueryEmail(q);
       return q;
     }
     return mutateLocal((s) => {
@@ -1315,6 +1319,7 @@ export async function createQuery(input: {
         link: `/uk/admin/queries`,
         refId: saved.id,
       });
+      void sendQueryEmail(saved);
       return saved;
     });
   } finally {

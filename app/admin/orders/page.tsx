@@ -19,6 +19,7 @@ import {
   patchOrder,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -75,17 +76,25 @@ export default function OrdersPage() {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    api<{ orders: Order[] }>("/api/orders")
+    return api<{ orders: Order[] }>("/api/orders")
       .then(({ orders }) => {
         setOrders(orders);
         setSelected(new Set());
       })
       .catch((e) => setError(e.message || "Could not load orders."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const counts = useMemo(() => {
     const c: Record<Tab, number> = { all: 0, new: 0, confirmed: 0, out_for_delivery: 0, delivered: 0, failed: 0 };
@@ -161,6 +170,7 @@ export default function OrdersPage() {
           <button className={btnAdmin} onClick={exportCsv} disabled={!filtered.length}>
             Export CSV
           </button>
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
         </div>
       </div>
 

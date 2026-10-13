@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
-import { listCoupons, logAudit, saveCoupon } from "@/lib/db";
+import { listCoupons, listOrders, logAudit, saveCoupon } from "@/lib/db";
+import { sendNewCouponEmails } from "@/lib/email";
 
 export async function GET() {
   const denied = await requireAdmin();
@@ -37,5 +38,18 @@ export async function POST(req: Request) {
   const adminEmail = (await getAdminEmail()) ?? "unknown";
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
   await logAudit({ adminEmail, action: "coupon.create", entity: "coupon", entityId: coupon.id, summary: `Created coupon "${coupon.code}"`, ip });
+  // Announce the new coupon to every customer (unique emails from orders).
+  if (coupon.active !== false) {
+    const seen = new Set<string>();
+    const recipients: { name?: string; email: string }[] = [];
+    for (const o of await listOrders().catch(() => [])) {
+      const email = o.customer.email?.trim().toLowerCase();
+      if (email && !seen.has(email)) {
+        seen.add(email);
+        recipients.push({ name: o.customer.name, email });
+      }
+    }
+    void sendNewCouponEmails(coupon, recipients);
+  }
   return NextResponse.json({ coupon }, { status: 201 });
 }

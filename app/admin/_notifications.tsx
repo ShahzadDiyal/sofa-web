@@ -46,7 +46,12 @@ export function AdminBell() {
   useEffect(() => {
     load();
     const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    // Refresh instantly when the notifications page marks things read.
+    window.addEventListener("sofora:badges", load);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("sofora:badges", load);
+    };
   }, []);
 
   const openItem = async (n: AdminNotification) => {

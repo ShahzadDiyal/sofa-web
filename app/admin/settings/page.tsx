@@ -18,6 +18,7 @@ import {
   btnAdminPrimary,
   fieldClass,
   labelClass,
+  RefreshButton,
 } from "../_ui";
 
 export default function ContentSettingsPage() {
@@ -42,10 +43,11 @@ export default function ContentSettingsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    Promise.all([
+    return Promise.all([
       api<{ settings: SiteSettings }>("/api/settings"),
       api<{ faqs: Faq[] }>("/api/faqs"),
       api<{ reviews: Review[] }>("/api/reviews"),
@@ -72,7 +74,14 @@ export default function ContentSettingsPage() {
       })
       .catch((e) => setError(e.message || "Could not load settings."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const saveSettings = async (patch: Partial<SiteSettings>, key: string, doneMsg: string) => {
     setBusy(key);
@@ -123,9 +132,12 @@ export default function ContentSettingsPage() {
 
   return (
     <>
-      <div>
-        <h1 className="text-[36px] leading-tight">Settings</h1>
-        <p className="text-muted mt-1.5">Storefront content, contact details, FAQs and reviews.</p>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[36px] leading-tight">Settings</h1>
+          <p className="text-muted mt-1.5">Storefront content, contact details, FAQs and reviews.</p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

@@ -22,6 +22,7 @@ import {
   tdClass,
   thClass,
   usePagination,
+  RefreshButton,
 } from "../_ui";
 
 export default function AdminUsersPage() {
@@ -34,16 +35,24 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<AdminRole>("user");
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ users: AdminUser[] }>("/api/admin/users")
+    return api<{ users: AdminUser[] }>("/api/admin/users")
       .then(({ users }) => {
         setUsers(users);
         setError("");
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load users."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,13 +116,16 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-[30px]">Users</h1>
-        <p className="text-muted text-[14px] mt-1">
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[30px]">Users</h1>
+          <p className="text-muted text-[14px] mt-1">
           {users === null ? "Loading…" : `${users.length} account${users.length === 1 ? "" : "s"}`}.
           Only accounts with the <strong>admin</strong> role can sign in at /admin/login.
           Accounts can also be added directly in Firestore (collection <code>users</code>).
         </p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

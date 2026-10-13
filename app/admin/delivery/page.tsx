@@ -19,6 +19,7 @@ import {
   btnAdminPrimary,
   fieldClass,
   labelClass,
+  RefreshButton,
 } from "../_ui";
 
 interface Zone {
@@ -104,14 +105,22 @@ export default function DeliverySettingsPage() {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    api<{ settings: Record<string, unknown> }>("/api/settings")
+    return api<{ settings: Record<string, unknown> }>("/api/settings")
       .then(({ settings }) => setState(fromServer(settings)))
       .catch((e) => setError(e.message || "Could not load settings."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const set = <K extends keyof DeliveryState>(k: K, v: DeliveryState[K]) =>
     setState((s) => (s ? { ...s, [k]: v } : s));
@@ -169,6 +178,7 @@ export default function DeliverySettingsPage() {
           <p className="text-muted mt-1.5">Control how pay-on-delivery orders are verified, scheduled and delivered.</p>
         </div>
         <div className="flex gap-2.5">
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
           <button className={btnAdmin} onClick={load} disabled={saving}>
             Cancel
           </button>

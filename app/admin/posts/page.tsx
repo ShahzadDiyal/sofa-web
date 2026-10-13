@@ -16,6 +16,7 @@ import {
   btnAdminPrimary,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -27,14 +28,22 @@ export default function PostsPage() {
   const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    api<{ posts: Post[] }>("/api/posts?all=1")
+    return api<{ posts: Post[] }>("/api/posts?all=1")
       .then(({ posts }) => setPosts(posts))
       .catch((e) => setError(e.message || "Could not load articles."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const counts = useMemo(() => {
     const list = posts ?? [];
@@ -100,6 +109,7 @@ export default function PostsPage() {
         <Link href="/uk/admin/posts/new" className={btnAdminPrimary}>
           <IconPlus size={17} /> New article
         </Link>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       <ErrorBox message={error} onRetry={() => { setError(""); load(); }} />

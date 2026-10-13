@@ -14,6 +14,7 @@ import {
   initials,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -29,14 +30,22 @@ export default function CustomersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
     setError("");
-    api<{ orders: Order[] }>("/api/orders")
+    return api<{ orders: Order[] }>("/api/orders")
       .then(({ orders }) => setOrders(orders))
       .catch((e) => setError(e.message || "Could not load customers."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const customers = useMemo<Customer[]>(() => {
     const map = new Map<string, Customer>();
@@ -72,9 +81,12 @@ export default function CustomersPage() {
 
   return (
     <>
-      <div>
-        <h1 className="text-[36px] leading-tight">Customers</h1>
-        <p className="text-muted mt-1.5">Everyone who has ordered — derived from order history.</p>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h1 className="text-[36px] leading-tight">Customers</h1>
+          <p className="text-muted mt-1.5">Everyone who has ordered — derived from order history.</p>
+        </div>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

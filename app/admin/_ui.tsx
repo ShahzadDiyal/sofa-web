@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { OrderStatus } from "@/lib/types";
+import { IconRefresh } from "@/components/Icons";
 import { apiUrl } from "@/lib/seo";
 
 /* ---------- status pills (colors from SPEC §Order status badge colors) ---------- */
@@ -373,4 +374,44 @@ export function AdminPagination({
       </div>
     </div>
   );
+}
+
+/* Refresh button for admin list pages: re-fetches the page's data without
+   showing the full skeleton — the old data stays visible while the new
+   data loads. Pages wire it as:
+     const [refreshing, setRefreshing] = useState(false);
+     const refresh = () => { setRefreshing(true); load().finally(() => setRefreshing(false)); };
+     <RefreshButton refreshing={refreshing} onRefresh={refresh} />
+   where load() must NOT reset the data to null. */
+export function RefreshButton({
+  onRefresh,
+  refreshing,
+  label = "Refresh",
+}: {
+  onRefresh: () => void;
+  refreshing: boolean;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={refreshing}
+      className={btnAdmin}
+      aria-label={label}
+      title={label}
+    >
+      <span className={refreshing ? "animate-spin inline-flex" : "inline-flex"}>
+        <IconRefresh size={16} />
+      </span>
+      <span>{refreshing ? "Refreshing…" : label}</span>
+    </button>
+  );
+}
+
+/* Tells the admin shell to re-fetch the sidebar badge counts (new orders,
+   new queries) immediately — call after marking something read/handled so
+   the badges drop without waiting for navigation. */
+export function refreshAdminBadges() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("sofora:badges"));
 }

@@ -18,6 +18,7 @@ import {
   btnAdminPrimary,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -38,13 +39,21 @@ export default function FlashSalesPage() {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [deleting, setDeleting] = useState<FlashSale | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ sales: FlashSale[] }>("/api/flash-sales")
+    return api<{ sales: FlashSale[] }>("/api/flash-sales")
       .then(({ sales }) => setSales(sales))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load flash sales."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -77,6 +86,7 @@ export default function FlashSalesPage() {
         <Link href="/uk/admin/flash-sales/new" className={btnAdminPrimary}>
           <IconPlus size={16} /> Add banner
         </Link>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

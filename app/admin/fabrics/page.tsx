@@ -19,6 +19,7 @@ import {
   labelClass,
   tdClass,
   thClass,
+  RefreshButton,
 } from "../_ui";
 import { AdminPagination, usePagination } from "../_ui";
 
@@ -34,16 +35,26 @@ export default function FabricsPage() {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<Fabric | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = () => {
-    api<{ fabrics: Fabric[] }>("/api/fabrics")
-      .then(({ fabrics }) => setFabrics(fabrics))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load fabrics."));
-    api<{ products: Product[] }>("/api/products")
-      .then(({ products }) => setProducts(products))
-      .catch(() => {});
+    return Promise.all([
+      api<{ fabrics: Fabric[] }>("/api/fabrics")
+        .then(({ fabrics }) => setFabrics(fabrics))
+        .catch((e) => setError(e instanceof Error ? e.message : "Failed to load fabrics.")),
+      api<{ products: Product[] }>("/api/products")
+        .then(({ products }) => setProducts(products))
+        .catch(() => {}),
+    ]);
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const usage = useMemo(() => {
     const m = new Map<string, number>();
@@ -121,6 +132,7 @@ export default function FabricsPage() {
         <button className={btnAdminPrimary} onClick={openNew}>
           <IconPlus size={16} /> Add fabric
         </button>
+        <RefreshButton refreshing={refreshing} onRefresh={refresh} />
       </div>
 
       {error && <ErrorBox message={error} />}

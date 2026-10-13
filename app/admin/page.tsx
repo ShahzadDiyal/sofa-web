@@ -18,6 +18,7 @@ import {
   api,
   isToday,
   timeAgo,
+  RefreshButton,
 } from "./_ui";
 
 const DAY = 86400000;
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   // Client-only clock strings (set after mount to avoid SSR hydration mismatch —
   // the server's timezone can differ from the browser's).
   const [greet, setGreet] = useState("Good day");
@@ -48,14 +50,21 @@ export default function AdminDashboard() {
 
   const load = () => {
     setError("");
-    Promise.all([api<{ orders: Order[] }>("/api/orders"), api<{ products: Product[] }>("/api/products")])
+    return Promise.all([api<{ orders: Order[] }>("/api/orders"), api<{ products: Product[] }>("/api/products")])
       .then(([{ orders }, { products }]) => {
         setOrders(orders);
         setProducts(products);
       })
       .catch((e) => setError(e.message || "Could not load dashboard data."));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const refresh = () => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  };
 
   const kpis = useMemo(() => {
     if (!orders) return null;
@@ -179,7 +188,9 @@ export default function AdminDashboard() {
           <h1 className="text-[36px] leading-tight">{greet}</h1>
           <p className="text-muted mt-1.5 min-h-[24px]">{dateLine}</p>
         </div>
-        <label className="flex items-center gap-2.5 bg-white border-[1.5px] border-line rounded-full px-4 min-h-[44px] min-w-[240px]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <RefreshButton refreshing={refreshing} onRefresh={refresh} />
+          <label className="flex items-center gap-2.5 bg-white border-[1.5px] border-line rounded-full px-4 min-h-[44px] min-w-[240px]">
           <IconSearch size={18} className="text-muted shrink-0" />
           <input
             aria-label="Search orders"
@@ -189,6 +200,7 @@ export default function AdminDashboard() {
             className="border-0 outline-0 bg-transparent flex-1 min-w-0 text-[14px]"
           />
         </label>
+        </div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={load} />}

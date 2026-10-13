@@ -5,7 +5,7 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiUrl } from "@/lib/seo";
 import {
   IconArrowRight,
@@ -219,15 +219,28 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       .catch(() => window.location.replace("/uk/admin/login"));
   }, [isLoginPage]);
 
-  useEffect(() => {
-    if (!authChecked) return;
+  /* Sidebar badges count only unread items (new orders, new queries).
+     Refetched on navigation AND whenever a page reports that something was
+     read/handled, via window event "sofora:badges" — so the counts drop the
+     moment you read a query or update an order, not just on page change. */
+  const refreshBadges = useCallback(() => {
     api<{ orders: Order[] }>("/api/orders")
       .then(({ orders }) => setNewCount(orders.filter((o) => o.status === "new").length))
       .catch(() => {});
     api<{ queries: ContactQuery[] }>("/api/queries")
       .then(({ queries }) => setNewQueryCount(queries.filter((x) => x.status === "new").length))
       .catch(() => {});
-  }, [pathname, authChecked]);
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return;
+    refreshBadges();
+  }, [pathname, authChecked, refreshBadges]);
+
+  useEffect(() => {
+    window.addEventListener("sofora:badges", refreshBadges);
+    return () => window.removeEventListener("sofora:badges", refreshBadges);
+  }, [refreshBadges]);
 
   async function signOut() {
     await fetch(apiUrl("/api/admin/session"), { method: "DELETE" }).catch(() => {});
