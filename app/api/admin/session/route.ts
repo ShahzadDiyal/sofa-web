@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { ADMIN_COOKIE, getAdminEmail, makeSessionValue } from "@/lib/admin-auth";
 import { verifyAdminCredentials } from "@/lib/admin-users";
+import { logAudit } from "@/lib/db";
 
 // 10 years — the admin session effectively never expires.
 const SESSION_MAX_AGE_S = 10 * 365 * 24 * 60 * 60;
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Database unavailable — please try again." }, { status: 503 });
   }
   if (!user) {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+    await logAudit({ adminEmail: String(email).toLowerCase(), action: "auth.login_failed", summary: "Failed sign-in attempt", ip });
     return NextResponse.json(
       { error: "Wrong email or password — or this account is not an admin." },
       { status: 401 }
@@ -43,6 +46,8 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: SESSION_MAX_AGE_S,
   });
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail: user.email, action: "auth.login", summary: "Signed in", ip });
   return res;
 }
 
@@ -52,8 +57,11 @@ export async function GET() {
   return NextResponse.json({ ok: true, email });
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
   const res = NextResponse.json({ ok: true });
   res.cookies.set(ADMIN_COOKIE, "", { path: "/", maxAge: 0 });
+  await logAudit({ adminEmail, action: "auth.logout", summary: "Signed out", ip });
   return res;
 }

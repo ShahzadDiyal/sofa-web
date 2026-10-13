@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { deleteFlashSale, saveFlashSale } from "@/lib/db";
+import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
+import { deleteFlashSale, logAudit, saveFlashSale } from "@/lib/db";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
@@ -27,13 +27,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     endsAt: body.endsAt,
     active: body.active,
   });
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "flashsale.update", entity: "flash_sale", entityId: id, summary: `Updated flash sale "${sale.title}"`, ip });
   return NextResponse.json({ sale });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
   const { id } = await params;
   await deleteFlashSale(id);
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "flashsale.delete", entity: "flash_sale", entityId: id, summary: `Deleted flash sale ${id}`, ip });
   return NextResponse.json({ ok: true });
 }

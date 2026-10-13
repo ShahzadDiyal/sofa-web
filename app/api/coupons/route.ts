@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { listCoupons, saveCoupon } from "@/lib/db";
+import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
+import { listCoupons, logAudit, saveCoupon } from "@/lib/db";
 
 export async function GET() {
   const denied = await requireAdmin();
@@ -34,5 +34,8 @@ export async function POST(req: Request) {
     endsAt: body.endsAt || undefined,
     active: body.active !== false,
   });
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "coupon.create", entity: "coupon", entityId: coupon.id, summary: `Created coupon "${coupon.code}"`, ip });
   return NextResponse.json({ coupon }, { status: 201 });
 }

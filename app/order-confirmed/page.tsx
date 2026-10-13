@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { absoluteUrl } from "@/lib/seo";
 import OrderConfirmedClient from "./OrderConfirmedClient";
+import ChatWidget from "@/components/ChatWidget";
 
 export const metadata: Metadata = {
   title: "Order confirmed — pay on delivery",
@@ -14,6 +15,7 @@ export default function OrderConfirmedPage() {
   return (
     <Suspense fallback={<div className="min-h-[60vh] grid place-items-center"><div className="skeleton w-64 h-8" /></div>}>
       <OrderConfirmedClient />
+      <ChatWidget />
     </Suspense>
   );
 }

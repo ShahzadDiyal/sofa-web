@@ -1,6 +1,7 @@
 import Script from "next/script";
 import { getSettings, listCategories, listFaqs, listProducts } from "@/lib/db";
 import { AnnouncementBar, Footer, Header } from "@/components/layout";
+import ChatWidget from "@/components/ChatWidget";
 import { JsonLd } from "@/components/storefront";
 import { faqJsonLd, howCodWorksJsonLd, orgJsonLd, websiteJsonLd } from "@/lib/seo";
 
@@ -44,6 +45,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <Header logoUrl={settings.logoUrl} categories={categories} products={products} />
       <main>{children}</main>
       <Footer settings={settings} shopLinks={shopLinks} />
+      <ChatWidget />
     </>
   );
 }

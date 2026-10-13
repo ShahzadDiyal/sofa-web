@@ -53,6 +53,7 @@ interface LocalStore {
   orders: Order[];
   notifications: AdminNotification[];
   auditLogs: AuditLog[];
+  visits: Visit[];
   settings: SiteSettings;
   orderSeq: number;
   posts: Post[];
@@ -103,6 +104,7 @@ function freshLocal(): LocalStore {
     orders: [],
     notifications: [],
     auditLogs: [],
+    visits: [],
     settings: structuredClone(seedSettings),
     orderSeq: 1001,
     posts: structuredClone(seedPosts),
@@ -136,6 +138,7 @@ async function readLocalFile(): Promise<LocalStore> {
       "orders",
       "notifications",
       "auditLogs",
+      "visits",
       "posts",
     ] as const) {
       if (!Array.isArray(store[k])) store[k] = [] as never;
@@ -2552,6 +2555,189 @@ export async function auditLogFacets(): Promise<{ actions: string[]; admins: str
         actions: [...new Set(s.auditLogs.map((l) => l.action))].sort(),
         admins: [...new Set(s.auditLogs.map((l) => l.adminEmail))].sort(),
       };
+    }
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Visitor tracking (chat widget opens)                               */
+/* ------------------------------------------------------------------ */
+
+export interface Visit {
+  id: string;
+  name?: string; // absent = guest visitor
+  email?: string;
+  phone?: string;
+  page: string; // exact page URL where the chat button was clicked
+  ip?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  timeOnSite?: number; // seconds spent on the site before clicking
+  createdAt: string;
+  updatedAt?: string;
+}
+
+function rowToVisit(r: Record<string, unknown>): Visit {
+  const v: Visit = {
+    id: String(r.id ?? ""),
+    page: String(r.page ?? ""),
+    createdAt: String(r.createdAt ?? new Date().toISOString()),
+  };
+  for (const k of ["name", "email", "phone", "ip", "country", "region", "city", "updatedAt"] as const) {
+    if (r[k] != null && String(r[k])) v[k] = String(r[k]);
+  }
+  if (r.timeOnSite != null && Number.isFinite(Number(r.timeOnSite))) v.timeOnSite = Number(r.timeOnSite);
+  return v;
+}
+
+/* Best-effort IP geolocation (city-level). Never throws, never blocks. */
+async function geoLookup(ip: string): Promise<{ country?: string; region?: string; city?: string }> {
+  try {
+    if (!ip || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1)/.test(ip)) return {};
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return {};
+    const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const out: { country?: string; region?: string; city?: string } = {};
+    if (typeof d.country_name === "string" && d.country_name) out.country = d.country_name;
+    if (typeof d.region === "string" && d.region) out.region = d.region;
+    if (typeof d.city === "string" && d.city) out.city = d.city;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/* Records a chat-widget open — never throws, so tracking can never
+   break the storefront. */
+export async function recordVisit(input: {
+  page: string;
+  timeOnSite?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  ip?: string;
+}): Promise<Visit | null> {
+  try {
+    const nowIso = new Date().toISOString();
+    const geo = input.ip ? await geoLookup(input.ip) : {};
+    const v: Visit = {
+      id: `vst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      page: input.page.slice(0, 512),
+      timeOnSite: input.timeOnSite,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      ...geo,
+    };
+    if (input.name?.trim()) v.name = input.name.trim().slice(0, 128);
+    if (input.email?.trim()) v.email = input.email.trim().slice(0, 255);
+    if (input.phone?.trim()) v.phone = input.phone.trim().slice(0, 64);
+    if (input.ip) v.ip = input.ip.slice(0, 64);
+    const row: Record<string, unknown> = {
+      id: v.id,
+      name: v.name ?? null,
+      email: v.email ?? null,
+      phone: v.phone ?? null,
+      page: v.page,
+      ip: v.ip ?? null,
+      country: v.country ?? null,
+      region: v.region ?? null,
+      city: v.city ?? null,
+      timeOnSite: v.timeOnSite ?? null,
+      createdAt: v.createdAt,
+      updatedAt: v.updatedAt,
+    };
+    const pool = mysqlPool();
+    if (pool) {
+      await upsertRow("visits", row);
+      return v;
+    }
+    return mutateLocal((s) => {
+      s.visits.unshift(v);
+      return v;
+    });
+  } catch (err) {
+    console.warn("[db] recordVisit failed (non-fatal):", (err as Error)?.message ?? err);
+    return null;
+  }
+}
+
+/* Attaches the visitor's identity once they submit the chat form. */
+export async function identifyVisit(id: string, identity: { name?: string; email?: string; phone?: string }): Promise<boolean> {
+  try {
+    const nowIso = new Date().toISOString();
+    const pool = mysqlPool();
+    if (pool) {
+      const [res] = await pool.query(
+        "UPDATE visits SET name = ?, email = ?, phone = ?, updatedAt = ? WHERE id = ?",
+        [
+          identity.name?.trim() || null,
+          identity.email?.trim() || null,
+          identity.phone?.trim() || null,
+          nowIso,
+          id,
+        ]
+      );
+      invalidateReadCache();
+      return Number((res as { affectedRows?: number }).affectedRows ?? 0) > 0;
+    }
+    return mutateLocal((s) => {
+      const v = s.visits.find((x) => x.id === id);
+      if (!v) return false;
+      if (identity.name?.trim()) v.name = identity.name.trim().slice(0, 128);
+      if (identity.email?.trim()) v.email = identity.email.trim().slice(0, 255);
+      if (identity.phone?.trim()) v.phone = identity.phone.trim().slice(0, 64);
+      v.updatedAt = nowIso;
+      return true;
+    });
+  } catch (err) {
+    console.warn("[db] identifyVisit failed (non-fatal):", (err as Error)?.message ?? err);
+    return false;
+  }
+}
+
+export async function listVisits(opts?: {
+  limit?: number;
+  offset?: number;
+  q?: string;
+}): Promise<{ visits: Visit[]; total: number }> {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const offset = Math.max(opts?.offset ?? 0, 0);
+  const q = opts?.q?.trim().toLowerCase();
+  return resilientRead(
+    `visits:${q ?? ""}:${limit}:${offset}`,
+    async () => {
+      const pool = requirePool();
+      const conds: string[] = [];
+      const params: unknown[] = [];
+      if (q) {
+        conds.push("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR page LIKE ? OR city LIKE ? OR country LIKE ? OR ip LIKE ?)");
+        params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+      }
+      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+      const [countRows] = await pool.query(`SELECT COUNT(*) AS c FROM visits ${where}`, params);
+      const total = Number((countRows as Record<string, unknown>[])[0]?.c ?? 0);
+      const [rows] = await pool.query(
+        `SELECT * FROM visits ${where} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      );
+      return { visits: (rows as Record<string, unknown>[]).map(rowToVisit), total };
+    },
+    async () => {
+      const s = await loadLocal();
+      let list = [...s.visits];
+      if (q)
+        list = list.filter((v) =>
+          [v.name, v.email, v.phone, v.page, v.city, v.country, v.ip]
+            .filter(Boolean)
+            .some((f) => String(f).toLowerCase().includes(q))
+        );
+      const total = list.length;
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return { visits: list.slice(offset, offset + limit), total };
     }
   );
 }

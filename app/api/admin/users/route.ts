@@ -16,6 +16,7 @@ import {
   setAdminUserRole,
   type AdminRole,
 } from "@/lib/admin-users";
+import { logAudit } from "@/lib/db";
 
 function isRole(v: unknown): v is AdminRole {
   return v === "admin" || v === "user";
@@ -51,6 +52,9 @@ export async function POST(req: Request) {
   }
   try {
     const user = await createAdminUser(email, password, role);
+    const adminEmail = (await getAdminEmail()) ?? "unknown";
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+    await logAudit({ adminEmail, action: "user.create", entity: "user", entityId: email, summary: `Created user ${email} (${role})`, ip });
     return NextResponse.json({ user });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not create user.";
@@ -82,6 +86,8 @@ export async function PATCH(req: Request) {
       }
     }
     const user = await setAdminUserRole(email, role);
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+    await logAudit({ adminEmail: me ?? "unknown", action: "user.role", entity: "user", entityId: email, summary: `Changed role of ${email} → ${role}`, ip });
     return NextResponse.json({ user });
   } catch (e) {
     return dbError(e);
@@ -103,6 +109,9 @@ export async function DELETE(req: Request) {
       );
     }
     await deleteAdminUser(email);
+    const adminEmail = (await getAdminEmail()) ?? "unknown";
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+    await logAudit({ adminEmail, action: "user.delete", entity: "user", entityId: email, summary: `Deleted user ${email}`, ip });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return dbError(e);

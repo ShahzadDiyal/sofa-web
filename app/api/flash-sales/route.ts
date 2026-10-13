@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { listFlashSales, saveFlashSale } from "@/lib/db";
+import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
+import { listFlashSales, logAudit, saveFlashSale } from "@/lib/db";
 
 /* GET is public — the storefront reads the active banner from the list. */
 export async function GET() {
@@ -34,5 +34,8 @@ export async function POST(req: Request) {
     endsAt: body.endsAt || undefined,
     active: body.active !== false,
   });
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "flashsale.create", entity: "flash_sale", entityId: sale.id, summary: `Created flash sale "${sale.title}"`, ip });
   return NextResponse.json({ sale }, { status: 201 });
 }

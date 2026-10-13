@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrder, updateOrderStatus } from "@/lib/db";
+import { getOrder, logAudit, updateOrderStatus } from "@/lib/db";
 import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
 import type { Order, OrderStatus } from "@/lib/types";
 
@@ -49,5 +49,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   const order = await updateOrderStatus(id, body.status as OrderStatus, body.note);
   if (!order) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "order.status", entity: "order", entityId: id, summary: `Order ${order.number} → ${body.status}`, ip });
   return NextResponse.json({ order });
 }

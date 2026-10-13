@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { deleteFabric, saveFabric } from "@/lib/db";
+import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
+import { deleteFabric, logAudit, saveFabric } from "@/lib/db";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
@@ -14,13 +14,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     id,
     name: body.name,
   });
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "fabric.update", entity: "fabric", entityId: id, summary: `Updated fabric "${fabric.name}"`, ip });
   return NextResponse.json({ fabric });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireAdmin();
   if (denied) return denied;
   const { id } = await params;
   await deleteFabric(id);
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "fabric.delete", entity: "fabric", entityId: id, summary: `Deleted fabric ${id}`, ip });
   return NextResponse.json({ ok: true });
 }

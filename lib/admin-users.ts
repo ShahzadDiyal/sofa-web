@@ -9,6 +9,7 @@
    Passwords are stored as entered. */
 
 import { mysqlPool } from "./mysql";
+import { notify } from "@/lib/db";
 
 export type AdminRole = "admin" | "user";
 
@@ -75,11 +76,22 @@ export async function createAdminUser(
   if (!password) throw new Error("Enter a password.");
   const now = new Date().toISOString();
   const user: AdminUser = { email: id, password, role, createdAt: now, updatedAt: now };
-  await pool.query(
+  const [res] = await pool.query(
     "INSERT INTO users (email, password, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?) " +
       "ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), updatedAt = VALUES(updatedAt)",
     [user.email, user.password, user.role, user.createdAt, user.updatedAt]
   );
+  // affectedRows: 1 = genuine insert, 2 = duplicate-key update — only the
+  // former is a new account worth notifying about.
+  if (Number((res as { affectedRows?: number }).affectedRows) === 1) {
+    void notify({
+      type: "account",
+      title: `New account: ${user.email}`,
+      body: `Role: ${user.role}`,
+      link: "/uk/admin/users",
+      refId: user.email,
+    }).catch(() => {});
+  }
   return user;
 }
 

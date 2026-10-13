@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
-import { listPosts, savePost } from "@/lib/db";
+import { getAdminEmail, requireAdmin } from "@/lib/admin-auth";
+import { listPosts, logAudit, savePost } from "@/lib/db";
 
 export async function GET(req: Request) {
   const denied = await requireAdmin();
@@ -31,5 +31,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
   const post = await savePost(body);
+  const adminEmail = (await getAdminEmail()) ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await logAudit({ adminEmail, action: "post.create", entity: "post", entityId: post.id, summary: `Created blog post "${post.title}"`, ip });
   return NextResponse.json({ post }, { status: 201 });
 }

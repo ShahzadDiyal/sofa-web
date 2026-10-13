@@ -10,15 +10,18 @@ import { apiUrl } from "@/lib/seo";
 import {
   IconArrowRight,
   IconArticle,
+  IconBell,
   IconBolt,
   IconChevronDown,
   IconDashboard,
   IconFabric,
   IconHeart,
+  IconHistory,
   IconMail,
   IconPackage,
   IconPalette,
   IconPhone,
+  IconPin,
   IconSettings,
   IconShield,
   IconSofa,
@@ -28,6 +31,7 @@ import {
 } from "@/components/Icons";
 import { api } from "./_ui";
 import AdminSearch from "./_search";
+import { AdminBell } from "./_notifications";
 import type { ContactQuery, Order } from "@/lib/types";
 import type { ComponentType } from "react";
 
@@ -62,6 +66,9 @@ const NAV: NavEntry[] = [
       { href: "/uk/admin/users", label: "Users", Icon: IconShield },
       { href: "/uk/admin/orders", label: "Orders", Icon: IconPackage, badge: true },
       { href: "/uk/admin/queries", label: "Queries", Icon: IconMail, queryBadge: true },
+      { href: "/uk/admin/notifications", label: "Notifications", Icon: IconBell },
+      { href: "/uk/admin/audit-logs", label: "Audit logs", Icon: IconHistory },
+      { href: "/uk/admin/tracking", label: "Tracking", Icon: IconPin },
     ],
   },
   {
@@ -251,10 +258,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen bg-cream">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-[250px] bg-forest text-cream flex-col gap-7 px-4 py-6 z-40">
-        <Link href="/uk/admin" className="flex items-center gap-2.5 px-1.5">
-          <Logo variant="light" markSize={36} textSize={22} />
-          <span className="text-[12px] text-[#C9D6CC]">Admin</span>
-        </Link>
+        <div className="flex items-center gap-2.5 px-1.5">
+          <Link href="/uk/admin" className="flex items-center gap-2.5">
+            <Logo variant="light" markSize={36} textSize={22} />
+            <span className="text-[12px] text-[#C9D6CC]">Admin</span>
+          </Link>
+          <div className="ml-auto">
+            <AdminBell />
+          </div>
+        </div>
         <AdminSearch id="admin-global-search" />
         <nav
           className="flex flex-col gap-1 overflow-y-auto min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -284,9 +296,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="flex items-center gap-2.5 px-4 py-3">
           <Logo variant="light" markSize={34} textSize={20} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
-          <Link href="/uk/" className="ml-auto text-[13px] underline text-[#C9D6CC]">
-            View store
-          </Link>
+          <div className="ml-auto flex items-center gap-1">
+            <AdminBell />
+            <Link href="/uk/" className="text-[13px] underline text-[#C9D6CC]">
+              View store
+            </Link>
+          </div>
         </div>
         <div className="px-4 pb-3">
           <AdminSearch id="admin-global-search-mobile" />
