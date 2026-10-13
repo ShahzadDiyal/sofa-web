@@ -58,8 +58,8 @@ export default async function HomePage() {
       <JsonLd data={itemListJsonLd(bestsellers, "Bestselling sofas at Sofora", "/")} />
 
       {/* ── Hero: full device height on md and up, natural responsive flow below md ── */}
-      <section className="mx-auto px-6 pt-14 pb-20 md:py-12 flex flex-wrap gap-12 items-center md:min-h-screen md:min-h-[100dvh]">
-        <div className="flex-1 basis-[460px] flex flex-col gap-7">
+      <section className="mx-auto px-6 pt-14 pb-20 md:py-10 flex flex-wrap gap-12 items-center md:min-h-screen md:min-h-[100dvh]">
+        <div className="flex-1 basis-[400px] flex flex-col gap-7">
           <span className="self-start inline-flex items-center gap-2 bg-mint text-forest rounded-full px-3.5 py-1.5 text-sm font-medium">
             <IconCash size={16} /> Cash on delivery across the UK
           </span>
@@ -90,13 +90,13 @@ export default async function HomePage() {
             </span>
           </div>
         </div>
-        <div className="flex-1 basis-[480px] relative">
+        <div className="flex-1 basis-[420px] relative">
           <div className="rounded-[32px] overflow-hidden">
             {heroProducts.length > 0 ? (
               <img
                 src={heroProducts[0].imageUrl}
                 alt={heroProducts[0].name}
-                className="w-full aspect-[1/1.05] object-cover"
+                className="w-full aspect-[1/1.05] object-cover md:aspect-auto md:h-[58dvh] xl:h-[66dvh]"
                 loading="eager"
               />
             ) : (
@@ -106,7 +106,7 @@ export default async function HomePage() {
                 bg="#DCE5DA"
                 accent="#F4E1D6"
                 title="Illustration of a Sofora three-seater sofa in terracotta weave"
-                className="w-full aspect-[1/1.05]"
+                className="w-full aspect-[1/1.05] md:aspect-auto md:h-[58dvh] xl:h-[66dvh]"
               />
             )}
           </div>
