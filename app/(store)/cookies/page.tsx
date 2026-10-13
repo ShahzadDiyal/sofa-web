@@ -69,7 +69,7 @@ export default async function CookiesPage() {
         <p>
           This policy explains the cookies and similar browser storage Sofora uses, why we
           use them, and how you can control them. It sits alongside our{" "}
-          <a className="underline" href="/privacy">privacy policy</a>.
+          <a className="underline" href="/uk/privacy">privacy policy</a>.
         </p>
 
         <h2 className="text-2xl text-ink mt-2">What cookies are</h2>

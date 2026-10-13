@@ -103,9 +103,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <article className="mx-auto max-w-3xl px-6 py-12 md:py-16">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-[14px] text-muted">
-          <Link href="/" className="hover:text-forest">Home</Link>
+          <Link href="/uk/" className="hover:text-forest">Home</Link>
           <span aria-hidden>/</span>
-          <Link href="/blog" className="hover:text-forest">Blog</Link>
+          <Link href="/uk/blog" className="hover:text-forest">Blog</Link>
           <span aria-hidden>/</span>
           <span className="truncate text-ink" aria-current="page">{post.title}</span>
         </nav>
@@ -177,7 +177,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             {post.tags.map((t) => (
               <Link
                 key={t}
-                href={`/blog?tag=${encodeURIComponent(t)}`}
+                href={`/uk/blog?tag=${encodeURIComponent(t)}`}
                 className="rounded-full border border-line bg-white px-4 py-1.5 text-[13.5px] font-medium hover:border-forest"
               >
                 {t}
@@ -217,13 +217,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {(prev || next) && (
           <nav className="mt-10 grid gap-4 sm:grid-cols-2" aria-label="More articles">
             {prev ? (
-              <Link href={`/blog/${prev.slug}`} className="group rounded-[16px] bg-white p-5 shadow-[0_2px_16px_rgba(46,60,51,0.07)]">
+              <Link href={`/uk/blog/${prev.slug}`} className="group rounded-[16px] bg-white p-5 shadow-[0_2px_16px_rgba(46,60,51,0.07)]">
                 <p className="label-caps text-muted">Newer</p>
                 <p className="mt-1.5 font-semibold text-ink group-hover:text-forest line-clamp-2">{prev.title}</p>
               </Link>
             ) : <span />}
             {next && (
-              <Link href={`/blog/${next.slug}`} className="group rounded-[16px] bg-white p-5 text-right shadow-[0_2px_16px_rgba(46,60,51,0.07)]">
+              <Link href={`/uk/blog/${next.slug}`} className="group rounded-[16px] bg-white p-5 text-right shadow-[0_2px_16px_rgba(46,60,51,0.07)]">
                 <p className="label-caps text-muted">Older</p>
                 <p className="mt-1.5 font-semibold text-ink group-hover:text-forest line-clamp-2">{next.title}</p>
               </Link>
@@ -236,7 +236,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <section className="mt-14" aria-label="Related articles">
             <div className="flex items-center justify-between">
               <h2 className="text-[26px] font-semibold text-ink">Keep reading</h2>
-              <Link href="/blog" className="flex items-center gap-1.5 text-[15px] font-medium text-forest hover:text-terra">
+              <Link href="/uk/blog" className="flex items-center gap-1.5 text-[15px] font-medium text-forest hover:text-terra">
                 All articles <IconArrowRight size={16} />
               </Link>
             </div>

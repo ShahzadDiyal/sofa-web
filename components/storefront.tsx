@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <div className="flex flex-col gap-3 group">
       <div className="rounded-[18px] overflow-hidden relative">
-        <Link href={`/sofas/${product.slug}`} aria-label={product.name}>
+        <Link href={`/uk/sofas/${product.slug}`} aria-label={product.name}>
           {product.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover group-hover:scale-[1.02] transition-transform" loading="lazy" />
@@ -60,7 +60,7 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
       </div>
       <div>
-        <Link href={`/sofas/${product.slug}`} className="font-medium text-[17px] hover:opacity-70">
+        <Link href={`/uk/sofas/${product.slug}`} className="font-medium text-[17px] hover:opacity-70">
           {product.name}
         </Link>
         <p className="text-muted text-sm mt-0.5">{product.sub}</p>
@@ -168,7 +168,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ProductReview[] }) {
               {r.productSlug && r.productName && (
                 <>
                   {" "}on{" "}
-                  <Link href={`/sofas/${r.productSlug}`} className="underline hover:text-ink">
+                  <Link href={`/uk/sofas/${r.productSlug}`} className="underline hover:text-ink">
                     {r.productName}
                   </Link>
                 </>
@@ -197,7 +197,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ProductReview[] }) {
           Next <IconArrowRight size={18} />
         </button>
         {isLast && (
-          <Link href="/reviews" className="btn btn-primary">
+          <Link href="/uk/reviews" className="btn btn-primary">
             View all reviews
           </Link>
         )}
@@ -225,7 +225,7 @@ export function FaqPreview({ faqs }: { faqs: { q: string; a: string }[] }) {
             Show more
           </button>
         )}
-        <Link href="/faqs" className="btn btn-outline">
+        <Link href="/uk/faqs" className="btn btn-outline">
           View all FAQs
         </Link>
       </div>

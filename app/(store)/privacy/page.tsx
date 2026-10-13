@@ -119,7 +119,7 @@ export default async function PrivacyPage() {
         <p>
           We use a small amount of browser storage to remember your basket and wishlist,
           and cookies as described in our{" "}
-          <a className="underline" href="/cookies">cookie policy</a>, where you can also
+          <a className="underline" href="/uk/cookies">cookie policy</a>, where you can also
           find out how to manage or delete them.
         </p>
 

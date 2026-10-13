@@ -72,7 +72,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         setAdminEmail(d.email ?? null);
         setAuthChecked(true);
       })
-      .catch(() => window.location.replace(apiUrl("/admin/login")));
+      .catch(() => window.location.replace("/uk/admin/login"));
   }, [isLoginPage]);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   async function signOut() {
     await fetch(apiUrl("/api/admin/session"), { method: "DELETE" }).catch(() => {});
-    window.location.replace(apiUrl("/admin/login"));
+    window.location.replace("/uk/admin/login");
   }
 
   // Login page renders without the admin chrome.
@@ -131,7 +131,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </Link>
         );
       })}
-      <Link href="/" className={linkCls(false)}>
+      <Link href="/uk/" className={linkCls(false)}>
         <IconArrowRight size={20} />
         <span>View store</span>
       </Link>
@@ -142,7 +142,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen bg-cream">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-[250px] bg-forest text-cream flex-col gap-7 px-4 py-6 z-40">
-        <Link href="/admin" className="flex items-center gap-2.5 px-1.5">
+        <Link href="/uk/admin" className="flex items-center gap-2.5 px-1.5">
           <Logo variant="light" markSize={36} textSize={22} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
         </Link>
@@ -175,7 +175,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="flex items-center gap-2.5 px-4 py-3">
           <Logo variant="light" markSize={34} textSize={20} />
           <span className="text-[12px] text-[#C9D6CC]">Admin</span>
-          <Link href="/" className="ml-auto text-[13px] underline text-[#C9D6CC]">
+          <Link href="/uk/" className="ml-auto text-[13px] underline text-[#C9D6CC]">
             View store
           </Link>
         </div>

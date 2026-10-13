@@ -84,14 +84,14 @@ export default async function TermsPage() {
           delivers to your room of choice, including upstairs rooms where safe access
           allows. Please ensure someone aged 18 or over is present during your slot. Our
           full delivery policy, including access requirements and timeframes, is set out on
-          our <a className="underline" href="/delivery">delivery page</a>.
+          our <a className="underline" href="/uk/delivery">delivery page</a>.
         </p>
 
         <h2 className="text-2xl text-ink mt-2">5. Inspection, acceptance and refusal</h2>
         <p>
           You may inspect the sofa at the door before paying. Payment by {paymentList}{" "}
           signifies acceptance. If the sofa is not right, you may refuse delivery and you
-          owe nothing — see our <a className="underline" href="/returns">returns page</a>.
+          owe nothing — see our <a className="underline" href="/uk/returns">returns page</a>.
         </p>
 
         <h2 className="text-2xl text-ink mt-2">6. Title and risk</h2>
@@ -106,7 +106,7 @@ export default async function TermsPage() {
           You have a 14-day right to cancel starting the day after delivery, under the
           Consumer Contracts Regulations 2013. We arrange and pay for collection, and
           refunds are made by bank transfer within 14 days of collection. Full details are
-          on our <a className="underline" href="/returns">returns page</a>.
+          on our <a className="underline" href="/uk/returns">returns page</a>.
         </p>
 
         <h2 className="text-2xl text-ink mt-2">8. Guarantee</h2>
@@ -135,8 +135,8 @@ export default async function TermsPage() {
         <h2 className="text-2xl text-ink mt-2">11. Privacy</h2>
         <p>
           How we collect and use your details is set out in our{" "}
-          <a className="underline" href="/privacy">privacy policy</a> and{" "}
-          <a className="underline" href="/cookies">cookie policy</a>.
+          <a className="underline" href="/uk/privacy">privacy policy</a> and{" "}
+          <a className="underline" href="/uk/cookies">cookie policy</a>.
         </p>
 
         <h2 className="text-2xl text-ink mt-2">12. Governing law</h2>

@@ -93,7 +93,7 @@ export default function ProductClient({
 
   const orderNow = () => {
     addToBasket(product, qty);
-    router.push("/checkout");
+    router.push("/uk/checkout");
   };
   const addBasket = () => {
     addToBasket(product, qty);
@@ -158,7 +158,7 @@ export default function ProductClient({
             <h1 className="text-[clamp(34px,4vw,48px)] leading-tight">{product.name}</h1>
             {/* Reviews: shown only when the product has real reviews. */}
             {reviewStats.count > 0 && (
-              <a href="/reviews" className="flex items-center gap-2.5 text-sm text-body hover:text-ink w-fit">
+              <a href="/uk/reviews" className="flex items-center gap-2.5 text-sm text-body hover:text-ink w-fit">
                 <Stars rating={reviewStats.avg} />
                 <span className="underline underline-offset-2">
                   {reviewStats.avg.toFixed(1)} · {reviewStats.count} review{reviewStats.count === 1 ? "" : "s"}
@@ -288,7 +288,7 @@ export default function ProductClient({
               <p className="faq-answer">
                 Free UK delivery on orders over {gbp(settings.freeDeliveryThreshold)} by a two-person
                 team. Inspect before you pay. {settings.refusalPolicy}{" "}
-                <Link href="/delivery" className="underline">Read the delivery policy</Link>.
+                <Link href="/uk/delivery" className="underline">Read the delivery policy</Link>.
               </p>
             </details>
             <div className="border-t border-line" />
@@ -301,7 +301,7 @@ export default function ProductClient({
         <div className="mx-auto px-6 py-20">
           <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
             <h2 className="text-[clamp(30px,3.4vw,42px)]">You might also like</h2>
-            <Link href="/sofas" className="font-semibold border-b-[1.5px] border-ink pb-0.5 hover:opacity-70">
+            <Link href="/uk/sofas" className="font-semibold border-b-[1.5px] border-ink pb-0.5 hover:opacity-70">
               View all sofas
             </Link>
           </div>

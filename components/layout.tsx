@@ -50,7 +50,7 @@ function useMenuData() {
    product's real photo when it has one, falling back to the illustration. */
 function ProductTile({ product }: { product: Product }) {
   return (
-    <Link href={`/sofas/${product.slug}`} className="group/tile flex flex-col gap-2">
+    <Link href={`/uk/sofas/${product.slug}`} className="group/tile flex flex-col gap-2">
       <span className="rounded-[18px] overflow-hidden block bg-cream">
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -185,7 +185,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
         >
           <IconMenu />
         </button>
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Sofora home">
+        <Link href="/uk/" className="flex items-center gap-2.5" aria-label="Sofora home">
           <Logo src={logoUrl || undefined} />
         </Link>
 
@@ -199,7 +199,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                 onMouseLeave={scheduleHide}
               >
                 <Link
-                  href="/sofas"
+                  href="/uk/sofas"
                   className="py-2.5 hover:opacity-70 flex items-center gap-1.5"
                   aria-haspopup="true"
                   aria-expanded={isOpen}
@@ -231,7 +231,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
             <IconSearch />
           </button>
           <Link
-            href="/wishlist"
+            href="/uk/wishlist"
             className="w-11 h-11 grid place-items-center rounded-full hover:bg-sand relative"
             aria-label={`Wishlist, ${wishlist.length} items`}
           >
@@ -243,7 +243,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
             )}
           </Link>
           <Link
-            href="/checkout"
+            href="/uk/checkout"
             className="w-11 h-11 grid place-items-center rounded-full hover:bg-sand relative"
             aria-label={`Basket, ${basketCount} items`}
           >
@@ -280,7 +280,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                     {openCats.map((c) => (
                       <li key={c.slug}>
                         <Link
-                          href={`/sofas?category=${c.slug}`}
+                          href={`/uk/sofas?category=${c.slug}`}
                           className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-[14px] hover:bg-cream transition-colors group/cat"
                         >
                           <span className="w-11 h-11 rounded-[12px] overflow-hidden bg-cream flex-none grid place-items-center">
@@ -303,7 +303,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                   </ul>
                 )}
                 <Link
-                  href="/sofas"
+                  href="/uk/sofas"
                   className="inline-flex items-center gap-2 mt-5 text-[14px] font-semibold text-forest underline underline-offset-4 hover:opacity-70"
                 >
                   View all {openMenu.toLowerCase()}
@@ -314,7 +314,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                 <div className="flex items-center justify-between mb-4">
                   <p className="label-caps">Most popular</p>
                   <Link
-                    href="/sofas"
+                    href="/uk/sofas"
                     className="text-[13px] font-semibold text-terra underline underline-offset-4 hover:opacity-70"
                   >
                     Shop bestsellers
@@ -402,7 +402,7 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
                         cats.map((c) => (
                           <Link
                             key={c.slug}
-                            href={`/sofas?category=${c.slug}`}
+                            href={`/uk/sofas?category=${c.slug}`}
                             onClick={() => setOpen(false)}
                             className="flex items-center gap-3 py-2 text-[16px]"
                           >
@@ -444,10 +444,10 @@ export function Header({ logoUrl }: { logoUrl?: string }) {
             >
               {SALE_LINK.label}
             </Link>
-            <Link href="/wishlist" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
+            <Link href="/uk/wishlist" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
               Wishlist
             </Link>
-            <Link href="/blog" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
+            <Link href="/uk/blog" onClick={() => setOpen(false)} className="py-3 text-lg font-medium border-b border-line">
               Blog
             </Link>
             <p className="mt-6 text-sm text-muted">Nothing to pay online — pay on delivery.</p>
@@ -493,7 +493,7 @@ export function Footer({
         </div>
         <nav className="flex-1 min-w-[150px] flex flex-col gap-2.5 text-[15px]" aria-label="Shop">
           <span className="label-caps text-peach! mb-1.5">Shop</span>
-          <Link href="/sofas" className="hover:opacity-70">All sofas</Link>
+          <Link href="/uk/sofas" className="hover:opacity-70">All sofas</Link>
           {shopLinks.map((l) => (
             <Link key={l.href} href={l.href} className="hover:opacity-70 capitalize">
               {l.label}

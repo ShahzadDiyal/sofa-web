@@ -97,7 +97,7 @@ export default function PostsPage() {
           <h1 className="text-2xl font-semibold text-ink">Blog</h1>
           <p className="text-[14px] text-muted">Buying guides and style ideas for the Sofora Journal.</p>
         </div>
-        <Link href="/admin/posts/new" className={btnAdminPrimary}>
+        <Link href="/uk/admin/posts/new" className={btnAdminPrimary}>
           <IconPlus size={17} /> New article
         </Link>
       </div>
@@ -164,7 +164,7 @@ export default function PostsPage() {
                       </div>
                     </td>
                     <td className={tdClass}>
-                      <Link href={`/admin/posts/${p.id}`} className="font-semibold text-ink hover:text-forest">
+                      <Link href={`/uk/admin/posts/${p.id}`} className="font-semibold text-ink hover:text-forest">
                         {p.title}
                       </Link>
                       <p className="text-[12.5px] text-muted">/blog/{p.slug}</p>
@@ -186,7 +186,7 @@ export default function PostsPage() {
                     </td>
                     <td className={tdClass}>
                       <div className="flex items-center gap-2">
-                        <Link href={`/admin/posts/${p.id}`} className={btnAdmin}>Edit</Link>
+                        <Link href={`/uk/admin/posts/${p.id}`} className={btnAdmin}>Edit</Link>
                         <button
                           className={btnAdmin}
                           aria-label={`Delete ${p.title}`}

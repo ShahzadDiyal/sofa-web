@@ -86,7 +86,7 @@ export default function PostForm({ initial }: { initial?: Post }) {
         await api<{ post: Post }>("/api/posts", "POST", payload);
         toast.success("Article published", `“${title.trim()}” was saved.`);
       }
-      router.push("/admin/posts");
+      router.push("/uk/admin/posts");
       router.refresh();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save the article.";
@@ -251,7 +251,7 @@ export default function PostForm({ initial }: { initial?: Post }) {
         <button type="button" className={btnAdminPrimary} disabled={saving} onClick={save}>
           {saving ? "Saving…" : initial ? "Save changes" : "Create article"}
         </button>
-        <button type="button" className={btnAdmin} onClick={() => router.push("/admin/posts")}>
+        <button type="button" className={btnAdmin} onClick={() => router.push("/uk/admin/posts")}>
           Cancel
         </button>
       </div>

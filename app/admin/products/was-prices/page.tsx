@@ -111,7 +111,7 @@ export default function BulkWasPricesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/admin/products" className="text-sm font-semibold underline underline-offset-4">
+          <Link href="/uk/admin/products" className="text-sm font-semibold underline underline-offset-4">
             Back to sofas
           </Link>
           <button

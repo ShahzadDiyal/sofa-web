@@ -14,7 +14,7 @@ function fmtDate(iso: string) {
 export function PostCard({ post }: { post: Post }) {
   return (
     <Link
-      href={`/blog/${post.slug}`}
+      href={`/uk/blog/${post.slug}`}
       className="group flex flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_2px_16px_rgba(46,60,51,0.07)] transition hover:-translate-y-1 hover:shadow-[0_10px_32px_rgba(46,60,51,0.12)]"
     >
       <div
@@ -142,7 +142,7 @@ export default function BlogClient({ posts, tags }: { posts: Post[]; tags: strin
         <>
           {featured && !q && !tag && (
             <Link
-              href={`/blog/${featured.slug}`}
+              href={`/uk/blog/${featured.slug}`}
               className="group mt-10 grid overflow-hidden rounded-[18px] bg-white shadow-[0_2px_16px_rgba(46,60,51,0.07)] md:grid-cols-2"
             >
               <div

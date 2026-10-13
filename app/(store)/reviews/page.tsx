@@ -32,7 +32,7 @@ function ReviewCard({ review }: { review: ProductReview }) {
           {review.location ? ` · ${review.location}` : ""} · {fmtDate(review.createdAt)}
         </p>
         <Link
-          href={`/sofas/${review.productSlug}`}
+          href={`/uk/sofas/${review.productSlug}`}
           className="text-[13px] font-semibold text-forest underline underline-offset-2 hover:text-ink"
         >
           {review.productName} →
@@ -92,7 +92,7 @@ export default async function ReviewsPage({
         <nav className="flex items-center justify-center gap-2 mt-12 flex-wrap" aria-label="Review pages">
           {current > 1 && (
             <Link
-              href={`/reviews?page=${current - 1}`}
+              href={`/uk/reviews?page=${current - 1}`}
               className="min-h-[44px] px-5 inline-flex items-center rounded-full border-[1.5px] border-line font-semibold text-[15px] hover:border-ink"
             >
               ← Newer
@@ -104,7 +104,7 @@ export default async function ReviewsPage({
               <span key={p} className="inline-flex items-center gap-2">
                 {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted">…</span>}
                 <Link
-                  href={`/reviews?page=${p}`}
+                  href={`/uk/reviews?page=${p}`}
                   aria-current={p === current ? "page" : undefined}
                   className={`w-11 h-11 inline-flex items-center justify-center rounded-full font-semibold text-[15px] ${
                     p === current ? "bg-forest text-cream" : "border-[1.5px] border-line hover:border-ink"
@@ -116,7 +116,7 @@ export default async function ReviewsPage({
             ))}
           {current < totalPages && (
             <Link
-              href={`/reviews?page=${current + 1}`}
+              href={`/uk/reviews?page=${current + 1}`}
               className="min-h-[44px] px-5 inline-flex items-center rounded-full border-[1.5px] border-line font-semibold text-[15px] hover:border-ink"
             >
               Older →

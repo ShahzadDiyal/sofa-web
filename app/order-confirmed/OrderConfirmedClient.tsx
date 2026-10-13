@@ -36,7 +36,7 @@ export default function OrderConfirmedClient() {
     <div className="min-h-screen bg-cream">
       <header className="bg-cream border-b border-line">
         <div className="mx-auto px-6 py-[18px]">
-          <Link href="/" className="inline-flex items-center gap-2.5" aria-label="Sofora home">
+          <Link href="/uk/" className="inline-flex items-center gap-2.5" aria-label="Sofora home">
             <span className="w-[38px] h-[38px] rounded-full bg-forest grid place-items-center text-cream">
               <IconSofa size={20} />
             </span>
@@ -56,7 +56,7 @@ export default function OrderConfirmedClient() {
           {failed ? (
             <p className="text-body text-[18px] max-w-[52ch] leading-relaxed">
               We couldn&apos;t find that order. If you just placed it, it&apos;s still being saved —
-              check your email or <Link href="/contact" className="underline">contact us</Link>.
+              check your email or <Link href="/uk/contact" className="underline">contact us</Link>.
             </p>
           ) : (
             <p className="text-body text-[18px] max-w-[52ch] leading-relaxed">
@@ -128,8 +128,8 @@ export default function OrderConfirmedClient() {
                 )}
               </div>
               <div className="flex gap-3 flex-wrap">
-                <Link href="/sofas" className="btn btn-primary flex-1 basis-[140px]">Keep shopping</Link>
-                <Link href="/contact" className="btn btn-outline flex-1 basis-[140px]">WhatsApp us</Link>
+                <Link href="/uk/sofas" className="btn btn-primary flex-1 basis-[140px]">Keep shopping</Link>
+                <Link href="/uk/contact" className="btn btn-outline flex-1 basis-[140px]">WhatsApp us</Link>
               </div>
             </aside>
           </div>

@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
         setBusy(false);
         return;
       }
-      window.location.replace(apiUrl("/admin"));
+      window.location.replace("/uk/admin");
     } catch {
       setError("Sign-in failed. Please try again.");
       setBusy(false);

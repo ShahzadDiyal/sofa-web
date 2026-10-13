@@ -139,7 +139,7 @@ export default function CustomersPage() {
                       </td>
                       <td className={tdClass}>{c.city}</td>
                       <td className={tdClass}>
-                        <Link href={`/admin/orders/${latest.id}`} className="underline font-medium">
+                        <Link href={`/uk/admin/orders/${latest.id}`} className="underline font-medium">
                           {c.orders.length} order{c.orders.length > 1 ? "s" : ""}
                         </Link>
                         <div className="text-[12px] text-muted">latest #{latest.number}</div>

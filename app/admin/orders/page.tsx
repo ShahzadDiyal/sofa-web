@@ -265,7 +265,7 @@ export default function OrdersPage() {
                       />
                     </td>
                     <td className={tdClass}>
-                      <Link href={`/admin/orders/${o.id}`} className="font-semibold underline">
+                      <Link href={`/uk/admin/orders/${o.id}`} className="font-semibold underline">
                         #{o.number}
                       </Link>
                       <div className="text-[12px] text-muted mt-0.5">{fmtDateTime(o.createdAt)}</div>
@@ -299,7 +299,7 @@ export default function OrdersPage() {
                     </td>
                     <td className={tdClass}>
                       <Link
-                        href={`/admin/orders/${o.id}`}
+                        href={`/uk/admin/orders/${o.id}`}
                         aria-label={`Open order ${o.number}`}
                         className="grid place-items-center w-9 h-9 rounded-full hover:bg-cream"
                       >

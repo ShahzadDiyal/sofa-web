@@ -332,7 +332,7 @@ export default function SofaForm({ product }: { product?: Product }) {
         await api("/api/products", "POST", payload);
         toast.success("Sofa added", `“${name.trim()}” was added to the catalogue.`);
       }
-      router.push("/admin/products");
+      router.push("/uk/admin/products");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Save failed.";
       setError(msg);
@@ -346,7 +346,7 @@ export default function SofaForm({ product }: { product?: Product }) {
   return (
     <>
       <nav aria-label="Breadcrumb" className="flex gap-2 text-muted text-[14px]">
-        <Link href="/admin/products" className="underline">
+        <Link href="/uk/admin/products" className="underline">
           Sofas
         </Link>
         <span>/</span>
@@ -356,7 +356,7 @@ export default function SofaForm({ product }: { product?: Product }) {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <h1 className="text-[36px] leading-tight">{product ? "Edit sofa" : "Add sofa"}</h1>
         <div className="flex gap-2.5 flex-wrap">
-          <Link href="/admin/products" className={btnAdmin}>
+          <Link href="/uk/admin/products" className={btnAdmin}>
             Discard
           </Link>
           <button className={btnAdmin} disabled={saving} onClick={() => save(false)}>

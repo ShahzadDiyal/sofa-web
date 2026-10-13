@@ -162,7 +162,7 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
           </span>
           <h1 className="text-4xl">Your basket is empty</h1>
           <p className="text-body">Add a sofa or two and come back — checkout takes a minute, and there&apos;s nothing to pay online.</p>
-          <Link href="/sofas" className="btn btn-primary mt-2">Shop all sofas</Link>
+          <Link href="/uk/sofas" className="btn btn-primary mt-2">Shop all sofas</Link>
         </div>
       </div>
     );
@@ -329,9 +329,9 @@ export default function CheckoutClient({ settings }: { settings: SiteSettings })
                 <input type="checkbox" checked={form.agree} onChange={(e) => set("agree", e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#1F3A32]" />
                 <span>
                   I&apos;ll be home for delivery, and I agree to the{" "}
-                  <Link href="/terms" className="underline">terms</Link>,{" "}
-                  <Link href="/delivery" className="underline">delivery policy</Link> and{" "}
-                  <Link href="/privacy" className="underline">privacy policy</Link>.
+                  <Link href="/uk/terms" className="underline">terms</Link>,{" "}
+                  <Link href="/uk/delivery" className="underline">delivery policy</Link> and{" "}
+                  <Link href="/uk/privacy" className="underline">privacy policy</Link>.
                 </span>
               </label>
               {error && (
@@ -450,7 +450,7 @@ function SlimHeader() {
   return (
     <header className="bg-cream border-b border-line">
       <div className="mx-auto px-6 flex items-center justify-between gap-4 flex-wrap py-[18px]">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Sofora home">
+        <Link href="/uk/" className="flex items-center gap-2.5" aria-label="Sofora home">
           <span className="w-[38px] h-[38px] rounded-full bg-forest grid place-items-center text-cream">
             <IconSofa size={20} />
           </span>
@@ -459,7 +459,7 @@ function SlimHeader() {
         <span className="flex items-center gap-2 text-sm text-forest font-medium">
           <IconShield size={18} /> Secure checkout · Pay on delivery
         </span>
-        <Link href="/sofas" className="text-sm font-medium underline hover:opacity-70">
+        <Link href="/uk/sofas" className="text-sm font-medium underline hover:opacity-70">
           Back to sofas
         </Link>
       </div>

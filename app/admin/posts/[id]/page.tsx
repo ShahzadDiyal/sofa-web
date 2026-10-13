@@ -32,7 +32,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
           <h1 className="text-2xl font-semibold text-ink">Edit article</h1>
           {post && (
             <p className="text-[14px] text-muted">
-              <Link href={`/blog/${post.slug}`} target="_blank" className="underline underline-offset-2 hover:text-forest">
+              <Link href={`/uk/blog/${post.slug}`} target="_blank" className="underline underline-offset-2 hover:text-forest">
                 View live article
               </Link>
             </p>

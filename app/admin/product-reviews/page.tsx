@@ -83,7 +83,7 @@ export default function ProductReviewsPage() {
       <div>
         <h1 className="text-[30px]">Product reviews</h1>
         <p className="text-muted text-[14px] mt-1">
-          {reviews === null ? "Loading…" : `${reviews.length} reviews`} across the catalogue. Shown on product pages and <Link href="/reviews" className="underline">/reviews</Link>.
+          {reviews === null ? "Loading…" : `${reviews.length} reviews`} across the catalogue. Shown on product pages and <Link href="/uk/reviews" className="underline">/reviews</Link>.
         </p>
       </div>
 
@@ -147,7 +147,7 @@ export default function ProductReviewsPage() {
                       </p>
                     </td>
                     <td className={tdClass}>
-                      <Link href={`/sofas/${r.productSlug}`} className="underline underline-offset-2 text-[14px]">
+                      <Link href={`/uk/sofas/${r.productSlug}`} className="underline underline-offset-2 text-[14px]">
                         {r.productName}
                       </Link>
                     </td>

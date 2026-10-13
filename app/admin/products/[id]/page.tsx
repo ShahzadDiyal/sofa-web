@@ -21,7 +21,7 @@ export default function EditSofaPage() {
   if (error)
     return (
       <>
-        <Link href="/admin/products" className="underline text-[14px] font-medium">
+        <Link href="/uk/admin/products" className="underline text-[14px] font-medium">
           ← Sofas
         </Link>
         <ErrorBox message={error} />

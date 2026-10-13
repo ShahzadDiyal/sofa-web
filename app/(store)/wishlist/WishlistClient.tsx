@@ -49,7 +49,7 @@ export default function WishlistClient() {
           <p className="text-body max-w-[40ch]">
             Browse the collection and tap the heart on the sofas you love — they&apos;ll wait for you here.
           </p>
-          <Link href="/sofas" className="btn btn-primary mt-2">Shop all sofas</Link>
+          <Link href="/uk/sofas" className="btn btn-primary mt-2">Shop all sofas</Link>
         </div>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">

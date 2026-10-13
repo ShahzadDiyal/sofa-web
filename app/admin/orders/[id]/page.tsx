@@ -168,7 +168,7 @@ export default function OrderDetailPage() {
   if (error && !order)
     return (
       <>
-        <Link href="/admin/orders" className="underline text-[14px] font-medium">
+        <Link href="/uk/admin/orders" className="underline text-[14px] font-medium">
           ← Orders
         </Link>
         <ErrorBox message={error} onRetry={load} />
@@ -194,7 +194,7 @@ export default function OrderDetailPage() {
   return (
     <>
       <nav aria-label="Breadcrumb" className="flex gap-2 text-muted text-[14px]">
-        <Link href="/admin/orders" className="underline">
+        <Link href="/uk/admin/orders" className="underline">
           Orders
         </Link>
         <span>/</span>

@@ -71,7 +71,7 @@ export default async function HomePage() {
             in person — and only pay once you love it.
           </p>
           <div className="flex gap-3.5 flex-wrap">
-            <Link href="/sofas" className="btn btn-primary">
+            <Link href="/uk/sofas" className="btn btn-primary">
               Shop all sofas
             </Link>
             <Link href="#how" className="btn btn-outline">
@@ -163,7 +163,7 @@ export default async function HomePage() {
         <div className="flex flex-wrap justify-between items-end gap-4 mb-9">
           <h2 className="text-[clamp(32px,3.6vw,44px)]">Shop by style</h2>
           <Link
-            href="/sofas"
+            href="/uk/sofas"
             className="font-semibold border-b-[1.5px] border-ink pb-0.5 hover:opacity-70"
           >
             View every sofa
@@ -173,7 +173,7 @@ export default async function HomePage() {
           {categories.map((c) => (
             <Link
               key={c.id}
-              href={`/sofas?category=${c.slug}`}
+              href={`/uk/sofas?category=${c.slug}`}
               className="flex flex-col gap-3 group"
             >
               <div className="rounded-[18px] overflow-hidden">
@@ -212,7 +212,7 @@ export default async function HomePage() {
               <span className="label-caps">Bestsellers</span>
               <h2 className="text-[clamp(32px,3.6vw,44px)]">Made for real living rooms</h2>
             </div>
-            <Link href="/sofas" className="btn btn-outline">
+            <Link href="/uk/sofas" className="btn btn-outline">
               See all sofas
             </Link>
           </div>
@@ -232,7 +232,7 @@ export default async function HomePage() {
               <span className="label-caps">More to explore</span>
               <h2 className="text-[clamp(32px,3.6vw,44px)]">Fresh picks, every visit</h2>
             </div>
-            <Link href="/sofas" className="btn btn-outline">
+            <Link href="/uk/sofas" className="btn btn-outline">
               See all sofas
             </Link>
           </div>
@@ -327,7 +327,7 @@ export default async function HomePage() {
                 What our customers say
               </h2>
             </div>
-            <Link href="/reviews" className="btn btn-outline">
+            <Link href="/uk/reviews" className="btn btn-outline">
               View all reviews
             </Link>
           </div>

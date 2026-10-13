@@ -9,7 +9,7 @@ export default function NotFound() {
         <p className="text-body mb-8">
           The page you&apos;re looking for doesn&apos;t exist — but plenty of comfortable ones do.
         </p>
-        <Link href="/sofas" className="btn btn-primary">
+        <Link href="/uk/sofas" className="btn btn-primary">
           Shop all sofas
         </Link>
       </div>

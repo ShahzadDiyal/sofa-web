@@ -123,12 +123,12 @@ export default function ProductsPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/products/was-prices"
+            href="/uk/admin/products/was-prices"
             className="text-sm font-semibold underline underline-offset-4"
           >
             Bulk was-prices
           </Link>
-          <Link href="/admin/products/new" className={btnAdminPrimary}>
+          <Link href="/uk/admin/products/new" className={btnAdminPrimary}>
             <IconPlus size={18} /> Add sofa
           </Link>
         </div>
@@ -213,7 +213,7 @@ export default function ProductsPage() {
                           )}
                         </div>
                         <div>
-                          <Link href={`/admin/products/${p.id}`} className="font-semibold underline">
+                          <Link href={`/uk/admin/products/${p.id}`} className="font-semibold underline">
                             {p.name}
                           </Link>
                           <div className="text-[12px] text-muted mt-0.5">SKU {p.sku || "—"}</div>
@@ -260,7 +260,7 @@ export default function ProductsPage() {
                     <td className={tdClass}>
                       <div className="flex gap-1">
                         <Link
-                          href={`/admin/products/${p.id}`}
+                          href={`/uk/admin/products/${p.id}`}
                           aria-label={`Edit ${p.name}`}
                           className="grid place-items-center w-9 h-9 rounded-full hover:bg-cream underline text-[14px] font-semibold"
                         >
@@ -294,7 +294,7 @@ export default function ProductsPage() {
             from={pg.from}
             to={pg.to}
           />
-          <Link href="/sofas" target="_blank" rel="noreferrer" className={btnAdmin}>
+          <Link href="/uk/sofas" target="_blank" rel="noreferrer" className={btnAdmin}>
             View storefront
           </Link>
         </div>

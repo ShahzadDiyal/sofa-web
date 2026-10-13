@@ -15,8 +15,9 @@ export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "https://sofora.example").replace(/\/$/, "");
 }
 
-/* Every public route lives under /uk (Next.js basePath). absoluteUrl always
-   builds the public SEO-facing URL, including the prefix. */
+/* Every public page URL lives under /uk (the prefix is applied at the URL
+   level by middleware.ts, which rewrites /uk/* to the real /* routes).
+   absoluteUrl always builds the public SEO-facing URL, including the prefix. */
 export const BASE_PATH = "/uk";
 
 export function absoluteUrl(path: string): string {
@@ -24,11 +25,11 @@ export function absoluteUrl(path: string): string {
   return `${siteUrl()}${BASE_PATH}${p}`;
 }
 
-/* Client-side fetch() calls do NOT get basePath automatically — use this for
-   every /api/* request from client components. */
+/* The API is served directly on /api/* (no /uk prefix). Pass the plain
+   /api/... path — this helper keeps the call sites uniform. */
 export function apiUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
-  return p.startsWith(BASE_PATH) ? p : `${BASE_PATH}${p}`;
+  return p.startsWith(`${BASE_PATH}/api/`) ? p.slice(BASE_PATH.length) : p;
 }
 
 export function gbp(amount: number): string {

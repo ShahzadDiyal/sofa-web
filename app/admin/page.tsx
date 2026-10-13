@@ -280,7 +280,7 @@ export default function AdminDashboard() {
         <Card className="flex-[3_1_520px] p-0! overflow-hidden">
           <div className="flex justify-between items-center gap-3 flex-wrap px-6 pt-6">
             <h2 className="text-[24px]">Recent orders</h2>
-            <Link href="/admin/orders" className="font-semibold underline text-[14px]">
+            <Link href="/uk/admin/orders" className="font-semibold underline text-[14px]">
               View all
             </Link>
           </div>
@@ -315,7 +315,7 @@ export default function AdminDashboard() {
                   {recent.map((o) => (
                     <tr key={o.id} className="hover:bg-[#FBF9F5]">
                       <td className="px-6 py-3.5 border-b border-sand text-[14px]">
-                        <Link href={`/admin/orders/${o.id}`} className="font-semibold underline">
+                        <Link href={`/uk/admin/orders/${o.id}`} className="font-semibold underline">
                           #{o.number}
                         </Link>
                         <div className="text-[12px] text-muted mt-0.5">{timeAgo(o.createdAt)}</div>
