@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
     // for when real photography is wired up via the admin panel.
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
+  experimental: {
+    // Build-time DB safety: static generation fans out into one worker
+    // process per ~25 pages, and every worker opens its own MySQL pool
+    // (up to 10 connections). On a 229-page build that is ~10 workers and
+    // can exceed Hostinger's 75-connections-per-user limit, so page data
+    // silently falls back to the local seed store. Fewer workers, each
+    // rendering fewer pages at once, keeps total connections ≈ 30.
+    staticGenerationMinPagesPerWorker: 80,
+    staticGenerationMaxConcurrency: 4,
+  },
   async headers() {
     return [
       {
