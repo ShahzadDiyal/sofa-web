@@ -51,6 +51,8 @@ interface LocalStore {
   faqs: Faq[];
   reviews: Review[];
   orders: Order[];
+  notifications: AdminNotification[];
+  auditLogs: AuditLog[];
   settings: SiteSettings;
   orderSeq: number;
   posts: Post[];
@@ -99,6 +101,8 @@ function freshLocal(): LocalStore {
     faqs: structuredClone(seedFaqs),
     reviews: structuredClone(seedReviews),
     orders: [],
+    notifications: [],
+    auditLogs: [],
     settings: structuredClone(seedSettings),
     orderSeq: 1001,
     posts: structuredClone(seedPosts),
@@ -130,6 +134,8 @@ async function readLocalFile(): Promise<LocalStore> {
       "faqs",
       "reviews",
       "orders",
+      "notifications",
+      "auditLogs",
       "posts",
     ] as const) {
       if (!Array.isArray(store[k])) store[k] = [] as never;
@@ -887,6 +893,13 @@ export async function createOrder(input: {
         updatedAt: order.updatedAt,
       });
       if (couponId) await incrementCouponUse(couponId);
+      void notify({
+        type: "order",
+        title: `New order ${order.number}`,
+        body: `${order.customer.name} — £${order.total.toFixed(2)} (${order.items.reduce((s, i) => s + i.qty, 0)} items)`,
+        link: `/uk/admin/orders/${order.id}`,
+        refId: order.id,
+      });
       return order;
     }
     return mutateLocal((s) => {
@@ -913,6 +926,15 @@ export async function createOrder(input: {
         const c = s.coupons.find((x) => x.id === couponId);
         if (c) c.usedCount += 1;
       }
+      return order;
+    }).then((order) => {
+      void notify({
+        type: "order",
+        title: `New order ${order.number}`,
+        body: `${order.customer.name} — £${order.total.toFixed(2)} (${order.items.reduce((s, i) => s + i.qty, 0)} items)`,
+        link: `/uk/admin/orders/${order.id}`,
+        refId: order.id,
+      });
       return order;
     });
   } finally {
@@ -1270,11 +1292,27 @@ export async function createQuery(input: {
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
       });
+      void notify({
+        type: "query",
+        title: `New query from ${q.name}`,
+        body: q.subject,
+        link: `/uk/admin/queries`,
+        refId: q.id,
+      });
       return q;
     }
     return mutateLocal((s) => {
       s.queries.push(q);
       return q;
+    }).then((saved) => {
+      void notify({
+        type: "query",
+        title: `New query from ${saved.name}`,
+        body: saved.subject,
+        link: `/uk/admin/queries`,
+        refId: saved.id,
+      });
+      return saved;
     });
   } finally {
     invalidateReadCache();
@@ -2209,4 +2247,311 @@ export async function saveSettings(patch: Partial<SiteSettings>): Promise<SiteSe
   } finally {
     invalidateReadCache();
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Admin notifications (bell) + audit logs                            */
+/* ------------------------------------------------------------------ */
+
+export type NotificationType = "order" | "query" | "account";
+
+export interface AdminNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body?: string;
+  link: string; // admin page to open, e.g. /uk/admin/orders/ord-123
+  refId?: string; // order id / query id / user email
+  isRead: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+function rowToNotification(r: Record<string, unknown>): AdminNotification {
+  const n: AdminNotification = {
+    id: String(r.id ?? ""),
+    type: (r.type === "query" || r.type === "account" ? r.type : "order") as NotificationType,
+    title: String(r.title ?? ""),
+    link: String(r.link ?? "/uk/admin"),
+    isRead: r.isRead === 1 || r.isRead === true,
+    createdAt: String(r.createdAt ?? new Date().toISOString()),
+  };
+  if (r.body != null) n.body = String(r.body);
+  if (r.refId != null) n.refId = String(r.refId);
+  if (r.updatedAt != null) n.updatedAt = String(r.updatedAt);
+  return n;
+}
+
+function notificationToRow(n: AdminNotification): Record<string, unknown> {
+  return {
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    body: n.body ?? null,
+    link: n.link,
+    refId: n.refId ?? null,
+    isRead: n.isRead ? 1 : 0,
+    createdAt: n.createdAt,
+    updatedAt: n.updatedAt ?? n.createdAt,
+  };
+}
+
+/* Creates a notification — never throws, so a notification failure can
+   never break checkout, the contact form, or user creation. */
+export async function notify(input: {
+  type: NotificationType;
+  title: string;
+  body?: string;
+  link: string;
+  refId?: string;
+}): Promise<AdminNotification | null> {
+  try {
+    const nowIso = new Date().toISOString();
+    const n: AdminNotification = {
+      id: `ntf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+      link: input.link,
+      refId: input.refId,
+      isRead: false,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    const pool = mysqlPool();
+    if (pool) {
+      await upsertRow("notifications", notificationToRow(n));
+      return n;
+    }
+    return mutateLocal((s) => {
+      s.notifications.unshift(n);
+      return n;
+    });
+  } catch (err) {
+    console.warn("[db] notify failed (non-fatal):", (err as Error)?.message ?? err);
+    return null;
+  }
+}
+
+export async function listNotifications(opts?: {
+  limit?: number;
+  unreadOnly?: boolean;
+  type?: NotificationType;
+}): Promise<AdminNotification[]> {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  return resilientRead(
+    `notifications:${opts?.type ?? "all"}:${opts?.unreadOnly ? "unread" : "all"}:${limit}`,
+    async () => {
+      const pool = requirePool();
+      const conds: string[] = [];
+      const params: unknown[] = [];
+      if (opts?.unreadOnly) conds.push("isRead = 0");
+      if (opts?.type) {
+        conds.push("type = ?");
+        params.push(opts.type);
+      }
+      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+      const [rows] = await pool.query(
+        `SELECT * FROM notifications ${where} ORDER BY createdAt DESC LIMIT ?`,
+        [...params, limit]
+      );
+      return (rows as Record<string, unknown>[]).map(rowToNotification);
+    },
+    async () => {
+      const s = await loadLocal();
+      let list = [...s.notifications];
+      if (opts?.unreadOnly) list = list.filter((n) => !n.isRead);
+      if (opts?.type) list = list.filter((n) => n.type === opts.type);
+      return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+    }
+  );
+}
+
+export async function countUnreadNotifications(): Promise<number> {
+  return resilientRead(
+    "notifications:unread-count",
+    async () => {
+      const pool = requirePool();
+      const [rows] = await pool.query("SELECT COUNT(*) AS c FROM notifications WHERE isRead = 0");
+      return Number((rows as Record<string, unknown>[])[0]?.c ?? 0);
+    },
+    async () => {
+      const s = await loadLocal();
+      return s.notifications.filter((n) => !n.isRead).length;
+    }
+  );
+}
+
+/* Marks notifications read — pass "all" or a list of ids. Returns rows changed. */
+export async function markNotificationsRead(ids: "all" | string[]): Promise<number> {
+  try {
+    const nowIso = new Date().toISOString();
+    const pool = mysqlPool();
+    if (pool) {
+      const [res] = ids === "all"
+        ? await pool.query("UPDATE notifications SET isRead = 1, updatedAt = ? WHERE isRead = 0", [nowIso])
+        : await pool.query("UPDATE notifications SET isRead = 1, updatedAt = ? WHERE id IN (?)", [
+            nowIso,
+            ids.length ? ids : ["__none__"],
+          ]);
+      invalidateReadCache();
+      return Number((res as { affectedRows?: number }).affectedRows ?? 0);
+    }
+    return mutateLocal((s) => {
+      let changed = 0;
+      for (const n of s.notifications) {
+        if ((ids === "all" || ids.includes(n.id)) && !n.isRead) {
+          n.isRead = true;
+          n.updatedAt = nowIso;
+          changed++;
+        }
+      }
+      return changed;
+    });
+  } finally {
+    invalidateReadCache();
+  }
+}
+
+export interface AuditLog {
+  id: string;
+  adminEmail: string;
+  action: string; // e.g. "auth.login", "order.status", "product.update"
+  entity?: string; // "order" | "product" | "coupon" | …
+  entityId?: string;
+  summary: string; // human-readable one-liner
+  details?: string; // JSON string
+  ip?: string;
+  createdAt: string;
+}
+
+function rowToAuditLog(r: Record<string, unknown>): AuditLog {
+  const l: AuditLog = {
+    id: String(r.id ?? ""),
+    adminEmail: String(r.adminEmail ?? ""),
+    action: String(r.action ?? ""),
+    summary: String(r.summary ?? ""),
+    createdAt: String(r.createdAt ?? new Date().toISOString()),
+  };
+  if (r.entity != null) l.entity = String(r.entity);
+  if (r.entityId != null) l.entityId = String(r.entityId);
+  if (r.details != null) l.details = String(r.details);
+  if (r.ip != null) l.ip = String(r.ip);
+  return l;
+}
+
+/* Records an admin action — never throws, so auditing can never break
+   the action it records. */
+export async function logAudit(input: {
+  adminEmail: string;
+  action: string;
+  entity?: string;
+  entityId?: string;
+  summary: string;
+  details?: unknown;
+  ip?: string;
+}): Promise<void> {
+  try {
+    const nowIso = new Date().toISOString();
+    const row: Record<string, unknown> = {
+      id: `aud-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      adminEmail: input.adminEmail,
+      action: input.action,
+      entity: input.entity ?? null,
+      entityId: input.entityId ?? null,
+      summary: input.summary,
+      details: input.details === undefined ? null : JSON.stringify(input.details),
+      ip: input.ip ?? null,
+      createdAt: nowIso,
+    };
+    const pool = mysqlPool();
+    if (pool) {
+      await upsertRow("audit_logs", row);
+      return;
+    }
+    await mutateLocal((s) => {
+      s.auditLogs.unshift(rowToAuditLog(row));
+    });
+  } catch (err) {
+    console.warn("[db] logAudit failed (non-fatal):", (err as Error)?.message ?? err);
+  }
+}
+
+export async function listAuditLogs(opts?: {
+  limit?: number;
+  offset?: number;
+  action?: string;
+  adminEmail?: string;
+  q?: string;
+}): Promise<{ logs: AuditLog[]; total: number }> {
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+  const offset = Math.max(opts?.offset ?? 0, 0);
+  const q = opts?.q?.trim().toLowerCase();
+  return resilientRead(
+    `audit:${opts?.action ?? "all"}:${opts?.adminEmail ?? "all"}:${q ?? ""}:${limit}:${offset}`,
+    async () => {
+      const pool = requirePool();
+      const conds: string[] = [];
+      const params: unknown[] = [];
+      if (opts?.action) {
+        conds.push("action = ?");
+        params.push(opts.action);
+      }
+      if (opts?.adminEmail) {
+        conds.push("adminEmail = ?");
+        params.push(opts.adminEmail);
+      }
+      if (q) {
+        conds.push("(summary LIKE ? OR entityId LIKE ? OR adminEmail LIKE ?)");
+        params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      }
+      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+      const [countRows] = await pool.query(`SELECT COUNT(*) AS c FROM audit_logs ${where}`, params);
+      const total = Number((countRows as Record<string, unknown>[])[0]?.c ?? 0);
+      const [rows] = await pool.query(
+        `SELECT * FROM audit_logs ${where} ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      );
+      return { logs: (rows as Record<string, unknown>[]).map(rowToAuditLog), total };
+    },
+    async () => {
+      const s = await loadLocal();
+      let list = [...s.auditLogs];
+      if (opts?.action) list = list.filter((l) => l.action === opts.action);
+      if (opts?.adminEmail) list = list.filter((l) => l.adminEmail === opts.adminEmail);
+      if (q)
+        list = list.filter(
+          (l) =>
+            l.summary.toLowerCase().includes(q) ||
+            (l.entityId ?? "").toLowerCase().includes(q) ||
+            l.adminEmail.toLowerCase().includes(q)
+        );
+      const total = list.length;
+      list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return { logs: list.slice(offset, offset + limit), total };
+    }
+  );
+}
+
+/* Distinct action names + admin emails for the audit page filters. */
+export async function auditLogFacets(): Promise<{ actions: string[]; admins: string[] }> {
+  return resilientRead(
+    "audit:facets",
+    async () => {
+      const pool = requirePool();
+      const [a] = await pool.query("SELECT DISTINCT action FROM audit_logs ORDER BY action");
+      const [u] = await pool.query("SELECT DISTINCT adminEmail FROM audit_logs ORDER BY adminEmail");
+      return {
+        actions: (a as Record<string, unknown>[]).map((r) => String(r.action)),
+        admins: (u as Record<string, unknown>[]).map((r) => String(r.adminEmail)),
+      };
+    },
+    async () => {
+      const s = await loadLocal();
+      return {
+        actions: [...new Set(s.auditLogs.map((l) => l.action))].sort(),
+        admins: [...new Set(s.auditLogs.map((l) => l.adminEmail))].sort(),
+      };
+    }
+  );
 }

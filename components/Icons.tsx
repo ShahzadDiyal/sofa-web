@@ -217,3 +217,16 @@ export const IconBolt = (p: P) => (
     <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z" />
   </svg>
 );
+export const IconBell = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </svg>
+);
+export const IconHistory = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </svg>
+);
