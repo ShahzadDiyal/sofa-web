@@ -24,7 +24,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
     .filter((c) => (counts.get(c.slug) ?? 0) > 0)
     .sort((a, b) => (counts.get(b.slug) ?? 0) - (counts.get(a.slug) ?? 0))
     .slice(0, 5)
-    .map((c) => ({ label: c.name, href: `/sofas?category=${c.slug}` }));
+    .map((c) => ({ label: c.name, href: `/uk/sofas/category/${c.slug}` }));
 
   return (
     <>

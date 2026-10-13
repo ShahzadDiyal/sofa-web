@@ -253,7 +253,7 @@ export function Header({
                   {openCats.map((c) => (
                       <li key={c.slug}>
                         <Link
-                          href={`/uk/sofas?category=${c.slug}`}
+                          href={`/uk/sofas/category/${c.slug}`}
                           className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-[14px] hover:bg-cream transition-colors group/cat"
                         >
                           <span className="w-11 h-11 rounded-[12px] overflow-hidden bg-cream flex-none grid place-items-center">
@@ -365,7 +365,7 @@ export function Header({
                       {cats.map((c) => (
                           <Link
                             key={c.slug}
-                            href={`/uk/sofas?category=${c.slug}`}
+                            href={`/uk/sofas/category/${c.slug}`}
                             onClick={() => setOpen(false)}
                             className="flex items-center gap-3 py-2 text-[16px]"
                           >

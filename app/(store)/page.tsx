@@ -176,7 +176,7 @@ export default async function HomePage() {
           {categories.map((c) => (
             <Link
               key={c.id}
-              href={`/uk/sofas?category=${c.slug}`}
+              href={`/uk/sofas/category/${c.slug}`}
               className="flex flex-col gap-3 group"
             >
               <div className="rounded-[18px] overflow-hidden">

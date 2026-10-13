@@ -60,9 +60,9 @@ export function PostCard({ post }: { post: Post }) {
   );
 }
 
-export default function BlogClient({ posts, tags }: { posts: Post[]; tags: string[] }) {
+export default function BlogClient({ posts, tags, initialTag: initialTagProp }: { posts: Post[]; tags: string[]; initialTag?: string }) {
   const searchParams = useSearchParams();
-  const initialTag = searchParams.get("tag");
+  const initialTag = initialTagProp ?? searchParams.get("tag");
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string | null>(
     initialTag && tags.includes(initialTag) ? initialTag : null

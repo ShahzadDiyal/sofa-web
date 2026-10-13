@@ -1,50 +1,11 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { listCategories, listColors, listFabrics, listProducts } from "@/lib/db";
 import { absoluteUrl } from "@/lib/seo";
 import CollectionClient from "./CollectionClient";
 
-/** Trim copy to 150–160 chars on a word boundary. */
-function trimDescription(text: string, max = 160): string {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max - 1);
-  const atWord = cut.lastIndexOf(" ");
-  return `${(atWord > 120 ? cut.slice(0, atWord) : cut).trimEnd()}…`;
-}
-
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: Promise<{ category?: string }>;
-}): Promise<Metadata> {
-  const { category: catSlug } = await searchParams;
-  if (catSlug) {
-    const categories = await listCategories();
-    const category = categories.find((c) => c.slug === catSlug);
-    if (category) {
-      const label = category.name;
-      const title = `${label} | Sofora`.length <= 60 ? `${label} | Sofora` : label;
-      const blurb = category.blurb?.trim();
-      const description = trimDescription(
-        `Shop ${label.toLowerCase()} with free UK delivery over £500. Pay cash on delivery after inspection.${
-          blurb ? ` ${blurb}` : " Handcrafted comfort, delivered by a two-person team to your room of choice."
-        }`
-      );
-      const canonical = absoluteUrl(`/sofas?category=${category.slug}`);
-      return {
-        title: { absolute: title },
-        description,
-        alternates: { canonical },
-        openGraph: {
-          title,
-          description,
-          url: canonical,
-          type: "website",
-        },
-      };
-    }
-  }
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "All sofas — pay on delivery",
     description:
@@ -59,7 +20,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function CollectionPage() {
+export default async function CollectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  // Legacy query-param category URLs (e.g. from old indexes) permanently
+  // redirect to the clean /sofas/category/<slug> path.
+  const { category } = await searchParams;
+  if (category) permanentRedirect(`/uk/sofas/category/${category}`);
   const [products, categories, colors, fabricLib] = await Promise.all([listProducts(), listCategories(), listColors(), listFabrics()]);
   return (
     <Suspense

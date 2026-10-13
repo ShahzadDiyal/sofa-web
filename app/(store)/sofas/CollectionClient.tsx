@@ -111,14 +111,20 @@ export default function CollectionClient({
   categories,
   colors,
   fabricLib,
+  initialCategory,
+  canonicalPath,
 }: {
   products: Product[];
   categories: Category[];
   colors: Color[];
   fabricLib: Fabric[];
+  /** Set when rendered on the /sofas/category/[slug] route (clean URL). */
+  initialCategory?: string;
+  /** Canonical path for JSON-LD (defaults to /sofas). */
+  canonicalPath?: string;
 }) {
   const params = useSearchParams();
-  const initialCat = params.get("category") ?? "";
+  const initialCat = initialCategory ?? params.get("category") ?? "";
   const initialQ = params.get("q") ?? "";
   const initialSale = params.get("sale") === "1";
 
@@ -204,11 +210,19 @@ export default function CollectionClient({
 
   return (
     <>
-      <JsonLd data={itemListJsonLd(filtered, activeCat ? `${activeCat.name} at Sofora` : "All sofas at Sofora", "/sofas")} />
+      <JsonLd data={itemListJsonLd(filtered, activeCat ? `${activeCat.name} at Sofora` : "All sofas at Sofora", canonicalPath ?? "/sofas")} />
 
       <div className="mx-auto px-6 pt-8 pb-5">
         <Breadcrumbs
-          trail={[{ name: "Home", href: "/uk/" }, { name: activeCat ? activeCat.name : "All sofas" }]}
+          trail={
+            initialCategory
+              ? [
+                  { name: "Home", href: "/uk/" },
+                  { name: "All sofas", href: "/uk/sofas" },
+                  { name: activeCat ? activeCat.name : "Sofas" },
+                ]
+              : [{ name: "Home", href: "/uk/" }, { name: activeCat ? activeCat.name : "All sofas" }]
+          }
         />
         <div className="flex flex-wrap justify-between items-end gap-6 mt-5">
           <div className="flex flex-col gap-3">

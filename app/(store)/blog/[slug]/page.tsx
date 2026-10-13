@@ -177,7 +177,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             {post.tags.map((t) => (
               <Link
                 key={t}
-                href={`/uk/blog?tag=${encodeURIComponent(t)}`}
+                href={`/uk/blog/tag/${encodeURIComponent(t)}`}
                 className="rounded-full border border-line bg-white px-4 py-1.5 text-[13.5px] font-medium hover:border-forest"
               >
                 {t}

@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const categoryUrls = categories.map((c) => ({
-    url: absoluteUrl(`/sofas?category=${c.slug}`),
+    url: absoluteUrl(`/sofas/category/${c.slug}`),
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.7,

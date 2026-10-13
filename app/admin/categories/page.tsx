@@ -293,7 +293,7 @@ export default function CategoriesPage() {
                 onChange={(e) => { setSlugTouched(true); setForm((f) => (f ? { ...f, slug: slugify(e.target.value) } : f)); }}
                 placeholder="corner-sofas"
               />
-              <p className="text-[13px] text-muted mt-1.5">Used in /sofas?category={form.slug || "…"}</p>
+              <p className="text-[13px] text-muted mt-1.5">Used in /sofas/category/{form.slug || "…"}</p>
             </div>
             <div>
               <label className={labelClass} htmlFor="cat-menu">Menu group <span className="font-normal text-muted">(navbar — leave empty to hide from nav)</span></label>

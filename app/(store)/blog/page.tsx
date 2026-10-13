@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { listPosts } from "@/lib/db";
 import { absoluteUrl, defaultOgImage } from "@/lib/seo";
@@ -24,7 +25,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function BlogPage() {
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tag?: string }>;
+}) {
+  // Legacy query-param tag URLs permanently redirect to /blog/tag/<tag>.
+  const { tag } = await searchParams;
+  if (tag) permanentRedirect(`/uk/blog/tag/${encodeURIComponent(tag)}`);
   const posts = await listPosts(true);
   const tags = [...new Set(posts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b));
 
